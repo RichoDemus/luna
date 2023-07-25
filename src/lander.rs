@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 pub(crate) struct LanderPlugin;
 
@@ -29,7 +30,7 @@ impl Default for FuelTank {
     }
 }
 
-#[derive(Component, Debug, Default, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(Component, Debug, Default, PartialEq, Eq, Hash, Copy, Clone, Serialize, Deserialize)]
 pub enum ShipStatus {
     #[default]
     Falling,

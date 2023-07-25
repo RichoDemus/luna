@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+use std::{fs, path};
+use std::fs::File;
+use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 
 use bevy::prelude::*;
@@ -6,9 +10,10 @@ use rurel::strategy::explore::RandomExploration;
 use rurel::strategy::learn::QLearning;
 use rurel::strategy::terminate::FixedIterations;
 use rurel::AgentTrainer;
+use rurel::mdp::State;
 
 use crate::ai::MyAction::Thrust;
-use crate::ai::{MyAgent, MyState};
+use crate::ai::{MyAction, MyAgent, MyState};
 use crate::camera::CameraPlugin;
 use crate::lander::{Altitude, FuelTank, Lander, LanderPlugin, ShipStatus, Velocity};
 use crate::ui::UiPlugin;
@@ -18,27 +23,64 @@ mod camera;
 mod lander;
 mod ui;
 
+fn train_loop() -> AgentTrainer<MyState> {
+    if !path::Path::new("model.json").exists() {
+        File::create("model.json").unwrap();
+        let mut data_file = File::create("model.json").expect("creation failed");
+        data_file.write("[]".as_bytes()).expect("write failed");
+    }
+    loop {
+        let mut data_file = File::open("model.json").unwrap();
+        let mut file_content = String::new();
+        data_file.read_to_string(&mut file_content).unwrap();
+        let learned_values_list: Vec<(MyState, Vec<(MyAction, f64)>)> = serde_json::from_str(file_content.as_str()).unwrap();
+        let learned_values = learned_values_list.into_iter().map(|(k, v)| (k, v.into_iter().collect::<HashMap<_, _>>())).collect::<HashMap<_, _>>();
+
+
+        let initial_state = MyState {
+            altitude: 1000000,
+            velocity: 0,
+            fuel: 1000,
+            status: Default::default(),
+        };
+        let mut trainer = AgentTrainer::new();
+        trainer.import_state(learned_values);
+        let mut agent = MyAgent {
+            state: initial_state.clone(),
+        };
+        trainer.train(
+            &mut agent,
+            &QLearning::new(0.2, 0.01, 2.),
+            &mut FixedIterations::new(10000),
+            &RandomExploration::new(),
+        );
+        let learned_values = trainer.export_learned_values();
+
+        let alt_max = learned_values.keys().max_by_key(|key|key.altitude);
+        let alt_min = learned_values.keys().min_by_key(|key|key.altitude);
+        let highest_reward = learned_values.keys().max_by(|left, right|left.partial_cmp(right).unwrap());
+        println!(
+            "One set of training done, now got {} values. hig/low: {:?} / {:?}. Best: {:?}",
+            learned_values.len(),alt_max, alt_min,highest_reward
+        );
+        if learned_values.len() > 1_000_000 {
+            return trainer;
+        }
+
+        // let learned_values_string_keys = learned_values.iter().map(|(k,v)|(serde_json::to_string(k).unwrap(), v))
+        let learned_values_list: Vec<(MyState, Vec<(MyAction, f64)>)> = learned_values.into_iter().map(|(key, value)| {
+            (key, value.into_iter().collect::<Vec<_>>())
+        }).collect::<Vec<_>>();
+
+        let json = serde_json::to_string_pretty(&learned_values_list).unwrap();
+        let _ = fs::remove_file("model.json");
+        let mut data_file = File::create("model.json").expect("creation failed");
+        data_file.write(json.as_bytes()).expect("write failed");
+    }
+}
+
 fn main() {
-    let initial_state = MyState {
-        altitude: 1000000,
-        velocity: 0,
-        fuel: 1000,
-        status: Default::default(),
-    };
-    let mut trainer = AgentTrainer::new();
-    let mut agent = MyAgent {
-        state: initial_state.clone(),
-    };
-    trainer.train(
-        &mut agent,
-        &QLearning::new(0.2, 0.01, 2.),
-        &mut FixedIterations::new(100000),
-        &RandomExploration::new(),
-    );
-    println!(
-        "Done training, got {} values",
-        trainer.export_learned_values().len()
-    );
+    let trainer = train_loop();
 
     let trainer = Arc::new(Mutex::new(trainer));
 
@@ -71,20 +113,20 @@ fn main() {
             }
         };
 
-    let brain = trainer.lock().unwrap().export_learned_values();
-    // println!("brain {}: {:#?}", brain.len(), brain);
-
-    App::new()
-        .add_plugins((
-            DefaultPlugins,
-            ShapePlugin,
-            CameraPlugin,
-            LanderPlugin,
-            UiPlugin,
-        ))
-        .add_systems(Startup, create_ground)
-        .add_systems(FixedUpdate, (ai_input))
-        .run();
+    // let brain = trainer.lock().unwrap().export_learned_values();
+    // // println!("brain {}: {:#?}", brain.len(), brain);
+    //
+    // App::new()
+    //     .add_plugins((
+    //         DefaultPlugins,
+    //         ShapePlugin,
+    //         CameraPlugin,
+    //         LanderPlugin,
+    //         UiPlugin,
+    //     ))
+    //     .add_systems(Startup, create_ground)
+    //     .add_systems(FixedUpdate, (ai_input))
+    //     .run();
 
     // App::new()
     //     .add_plugins((

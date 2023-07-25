@@ -2093,6 +2093,8 @@ dependencies = [
  "bevy",
  "bevy_prototype_lyon",
  "rurel",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use rurel::mdp;
 use rurel::mdp::Agent;
+use serde::{Deserialize, Serialize};
 
 use crate::ai::MyAction::{DoNothing, Thrust};
 use crate::create_ground;
@@ -10,7 +11,7 @@ use crate::lander::{
     Velocity,
 };
 
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct MyState {
     pub altitude: i32,
     pub velocity: i32,
@@ -22,13 +23,16 @@ impl mdp::State for MyState {
     type A = MyAction;
 
     fn reward(&self) -> f64 {
+        if self.altitude > 1000000 {
+            return (1000000 - self.altitude) as f64
+        }
         // should this be improved?
         return if self.status == Landed {
             (self.fuel * 100) as f64
         } else if self.status == Crashed {
             -100.
         } else {
-            self.fuel as f64
+            (1000000 - self.altitude) as f64
         };
     }
 
@@ -41,7 +45,7 @@ pub struct MyAgent {
     pub(crate) state: MyState,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub enum MyAction {
     DoNothing,
     Thrust,
