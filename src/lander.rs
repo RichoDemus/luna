@@ -7,7 +7,7 @@ impl Plugin for LanderPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, create_lander);
         app.add_systems(Update, (touchdown, altitude_to_transform));
-        app.add_systems(FixedUpdate, (gravity, movement));
+        app.add_systems(FixedUpdate, (gravity, movement.after(gravity)));
     }
 }
 
@@ -43,6 +43,7 @@ pub fn create_lander(mut commands: Commands) {
         ShipStatus::default(),
         FuelTank::default(),
         Altitude(1000000),
+        Velocity::default(),
         ShapeBundle {
             path: GeometryBuilder::build_as(&RegularPolygon {
                 sides: 3,
@@ -53,7 +54,6 @@ pub fn create_lander(mut commands: Commands) {
         },
         Fill::color(Color::CYAN),
         Stroke::new(Color::BLACK, 1.),
-        Velocity::default(),
     ));
 }
 
@@ -76,17 +76,22 @@ pub fn gravity(mut bodies: Query<(&mut Velocity, &Altitude, &ShipStatus), With<L
         let altitude_in_meters = (altitude.0 / 1000) as f64;
         let acceleration = gravity_at_sea_level
             * (mean_moon_radius_meters / (mean_moon_radius_meters + altitude_in_meters));
-        velocity.0 -= (acceleration * 17.) as i32;
+        let delta = (acceleration * 17.) as i32;
+        // println!("Changing velocity from {} by {}. accel: {}", velocity.0, delta, acceleration);
+        velocity.0 -= delta;
     }
 }
 
 pub fn movement(mut bodies: Query<(&Velocity, &mut Altitude, &ShipStatus)>) {
+    // println!("movement");
     for (velocity, mut altitude, status) in &mut bodies {
         if status != &ShipStatus::Falling {
             continue;
         }
         if altitude.0 > 0 {
-            altitude.0 += (velocity.0 / 60);
+            let delta = (velocity.0 / 60);
+            altitude.0 += delta;
+            // println!("Updated altitude to {} by {}", altitude.0, delta);
         }
     }
 }
