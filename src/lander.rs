@@ -35,7 +35,7 @@ pub enum ShipStatus {
     #[default]
     Falling,
     Landed,
-    Crashed,
+    Crashed(i32), //how much damage it took
 }
 
 pub fn create_lander(mut commands: Commands) {
@@ -104,9 +104,10 @@ pub fn touchdown(mut flying_ships: Query<(&Velocity, &Altitude, &mut ShipStatus)
         }
         if velocity.0.abs() > 10_000 {
             // too fast
-            *status = ShipStatus::Crashed;
+            *status = ShipStatus::Crashed(velocity.0.abs());
         } else {
             *status = ShipStatus::Landed;
+            println!("LANDED!!!");
         }
     }
 }

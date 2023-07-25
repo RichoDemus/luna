@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ai::MyAction::{DoNothing, Thrust};
 use crate::create_ground;
-use crate::lander::ShipStatus::{Crashed, Landed};
+use crate::lander::ShipStatus::{Crashed, Falling, Landed};
 use crate::lander::{
     altitude_to_transform, gravity, movement, touchdown, Altitude, FuelTank, Lander, ShipStatus,
     Velocity,
@@ -23,21 +23,42 @@ impl mdp::State for MyState {
     type A = MyAction;
 
     fn reward(&self) -> f64 {
-        if self.altitude > 1000000 {
-            return (1000000 - self.altitude) as f64
+        if let Crashed(damage) = self.status {
+            return (100_000 - damage) as f64;
         }
-        // should this be improved?
         return if self.status == Landed {
-            (self.fuel * 100) as f64
-        } else if self.status == Crashed {
-            -100.
+            ((1 + self.fuel) * 100_000) as f64
         } else {
-            (1000000 - self.altitude) as f64
+            0.
         };
+
+        // if self.altitude > 1000000 {
+        //     return (1000000 - self.altitude) as f64
+        // }
+        // // should this be improved?
+        // return if self.status == Landed {
+        //     (self.fuel * 10000000) as f64
+        // } else if self.status == Crashed {
+        //     -100.
+        // } else {
+        //     (1000000 - self.altitude) as f64
+        // };
     }
 
     fn actions(&self) -> Vec<MyAction> {
-        vec![DoNothing, Thrust]
+        return if self.altitude > 1000000 {
+            vec![DoNothing]
+        } else if self.status == Falling {
+            if self.fuel > 0 {
+                vec![DoNothing, Thrust]
+            } else {
+                vec![DoNothing]
+            }
+        } else if self.status != Falling {
+            vec![DoNothing]
+        } else {
+            vec![DoNothing]
+        };
     }
 }
 
@@ -89,8 +110,16 @@ pub fn do_a_whole_fucking_tick(state: &MyState, action: &MyAction) -> MyState {
     let mut app = App::new();
 
     app.add_plugins((MinimalPlugins));
-    app.add_systems(Update, (touchdown, altitude_to_transform));
-    app.add_systems(FixedUpdate, (input2, gravity, movement.after(gravity)));
+    app.add_systems(Update, (altitude_to_transform));
+    app.add_systems(
+        FixedUpdate,
+        (
+            input2,
+            gravity,
+            movement.after(gravity),
+            touchdown.after(movement),
+        ),
+    );
 
     app.add_systems(Startup, (create_ship2, create_ground));
 
