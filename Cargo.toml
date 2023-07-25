@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 bevy = "0.11.0"
 bevy_prototype_lyon = "0.9.0"
-bigdecimal = "0.4.1"
 rurel = "0.4.0"
 
 # Enable a small amount of optimization in debug mode
