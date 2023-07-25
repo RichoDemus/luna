@@ -1,15 +1,31 @@
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 
+pub(crate) struct LanderPlugin;
+
+impl Plugin for LanderPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, create_lander);
+        app.add_systems(Update, (touchdown, altitude_to_transform));
+        app.add_systems(FixedUpdate, (gravity, movement));
+    }
+}
+
 #[derive(Component)]
-pub struct Ship;
+pub struct Lander;
+
+#[derive(Component)]
+pub struct Altitude(pub i32); //in millimeters
+
+#[derive(Component, Default, Debug)]
+pub struct Velocity(pub i32); //in milimeters per second
 
 #[derive(Component, Debug)]
-pub struct FuelTank(f32);
+pub struct FuelTank(pub u32);
 
 impl Default for FuelTank {
     fn default() -> Self {
-        Self(1000.)
+        Self(1000)
     }
 }
 
@@ -21,25 +37,18 @@ pub enum ShipStatus {
     Crashed,
 }
 
-#[derive(Component, Default, Debug)]
-pub struct Velocity(Vec2);
-
 pub fn create_lander(mut commands: Commands) {
-    let mut camera = Camera2dBundle::default();
-    camera.transform.translation.y = 300.;
-
-    commands.spawn(camera);
     commands.spawn((
-        Ship,
+        Lander,
         ShipStatus::default(),
         FuelTank::default(),
+        Altitude(1000000),
         ShapeBundle {
             path: GeometryBuilder::build_as(&RegularPolygon {
                 sides: 3,
                 feature: RegularPolygonFeature::Radius(20.0),
                 ..RegularPolygon::default()
             }),
-            transform: Transform::from_xyz(0., 600., 10.),
             ..default()
         },
         Fill::color(Color::CYAN),
@@ -48,7 +57,7 @@ pub fn create_lander(mut commands: Commands) {
     ));
 }
 
-fn debug(ships: Query<(&Velocity, &Transform, &ShipStatus, &FuelTank), With<Ship>>) {
+fn debug(ships: Query<(&Velocity, &Transform, &ShipStatus, &FuelTank), With<Lander>>) {
     for (velocity, transform, status, fuel) in &ships {
         info!(
             "Ship: {:?}: Pos: {:?} velocity: {:?}. {:?} fuel left",
@@ -57,42 +66,48 @@ fn debug(ships: Query<(&Velocity, &Transform, &ShipStatus, &FuelTank), With<Ship
     }
 }
 
-pub fn gravity(
-    time: Res<Time>,
-    mut bodies: Query<(&mut Velocity, &Transform, &ShipStatus), With<Ship>>,
-) {
-    let delta_time = time.delta_seconds();
-    for (mut velocity, transform, status) in &mut bodies {
+pub fn gravity(mut bodies: Query<(&mut Velocity, &Altitude, &ShipStatus), With<Lander>>) {
+    for (mut velocity, altitude, status) in &mut bodies {
         if status != &ShipStatus::Falling {
             continue;
         }
-        let force = calc_gravitational_force_simple(transform.translation.y);
-        velocity.0 += force * delta_time;
+        let gravity_at_sea_level = 1.625;
+        let mean_moon_radius_meters = 1737400.;
+        let altitude_in_meters = (altitude.0 / 1000) as f64;
+        let acceleration = gravity_at_sea_level
+            * (mean_moon_radius_meters / (mean_moon_radius_meters + altitude_in_meters));
+        velocity.0 -= (acceleration * 17.) as i32;
     }
 }
 
-pub fn movement(time: Res<Time>, mut bodies: Query<(&Velocity, &mut Transform, &ShipStatus)>) {
-    for (velocity, mut transform, status) in &mut bodies {
+pub fn movement(mut bodies: Query<(&Velocity, &mut Altitude, &ShipStatus)>) {
+    for (velocity, mut altitude, status) in &mut bodies {
         if status != &ShipStatus::Falling {
             continue;
         }
-        if transform.translation.y > 0. {
-            transform.translation += velocity.0.extend(0.) * time.delta_seconds();
+        if altitude.0 > 0 {
+            altitude.0 += (velocity.0 / 60);
         }
     }
 }
 
-pub fn touchdown(mut flying_ships: Query<(&Velocity, &Transform, &mut ShipStatus), With<Ship>>) {
-    for (velocity, transform, mut status) in &mut flying_ships {
-        if transform.translation.y > 15. {
+pub fn touchdown(mut flying_ships: Query<(&Velocity, &Altitude, &mut ShipStatus), With<Lander>>) {
+    for (velocity, altitude, mut status) in &mut flying_ships {
+        if altitude.0 > 5 {
             continue;
         }
-        if velocity.0.y < -20. {
+        if velocity.0.abs() > 10_000 {
             // too fast
             *status = ShipStatus::Crashed;
         } else {
             *status = ShipStatus::Landed;
         }
+    }
+}
+
+pub fn altitude_to_transform(mut query: Query<(&Altitude, &mut Transform)>) {
+    for (altitude, mut transform) in &mut query {
+        transform.translation.y = (altitude.0 / 1000) as f32;
     }
 }
 
@@ -116,20 +131,4 @@ fn calculate_gravitational_force(
     let gravity: f32 = 1. * (mass * other_mass) / (distance * distance);
 
     gravity_direction * gravity
-}
-
-pub fn input(
-    keys: Res<Input<KeyCode>>,
-    mut ships: Query<(&mut Velocity, &ShipStatus, &mut FuelTank), With<Ship>>,
-    time: Res<Time>,
-) {
-    if keys.pressed(KeyCode::Space) {
-        for (mut velocity, status, mut fuel) in &mut ships {
-            if status != &ShipStatus::Falling {
-                continue;
-            }
-            velocity.0.y += 50. * time.delta_seconds();
-            fuel.0 -= 10. * time.delta_seconds();
-        }
-    }
 }

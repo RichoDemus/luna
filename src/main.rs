@@ -4,9 +4,16 @@ use bevy::app::ScheduleRunnerPlugin;
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 
-use crate::lander::{create_lander, gravity, input, movement, touchdown, Velocity};
+use crate::camera::CameraPlugin;
+use crate::lander::{
+    create_lander, gravity, movement, touchdown, FuelTank, Lander, LanderPlugin, ShipStatus,
+    Velocity,
+};
+use crate::ui::UiPlugin;
 
+mod camera;
 mod lander;
+mod ui;
 
 fn main() {
     // let initial_state = MyState {
@@ -67,18 +74,31 @@ fn main() {
     //     .run();
 
     App::new()
-        .add_plugins((DefaultPlugins, ShapePlugin))
-        .add_systems(Startup, (create_lander, create_ground))
-        .add_systems(
-            Update,
-            (
-                input,
-                gravity.after(input),
-                movement.after(gravity),
-                touchdown,
-            ),
-        )
+        .add_plugins((
+            DefaultPlugins,
+            ShapePlugin,
+            CameraPlugin,
+            LanderPlugin,
+            UiPlugin,
+        ))
+        .add_systems(Startup, create_ground)
+        .add_systems(FixedUpdate, (input))
         .run();
+}
+
+pub fn input(
+    keys: Res<Input<KeyCode>>,
+    mut ships: Query<(&mut Velocity, &ShipStatus, &mut FuelTank), With<Lander>>,
+) {
+    if keys.pressed(KeyCode::Space) {
+        for (mut velocity, status, mut fuel) in &mut ships {
+            if status != &ShipStatus::Falling {
+                continue;
+            }
+            velocity.0 += 10 * 17;
+            fuel.0 = fuel.0.saturating_sub(1);
+        }
+    }
 }
 
 //////////////////////////////////
