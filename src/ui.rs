@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::lander::{Altitude, FuelTank, Lander, ShipStatus, Velocity};
+use crate::lander::{Altitude, FuelTank, Lander, ShipStatus, Thruster, Velocity};
 
 pub(crate) struct UiPlugin;
 
@@ -82,16 +82,17 @@ struct ScrollingList {
 
 fn update_text(
     mut text_box: Query<&mut Text, With<InfoBox>>,
-    lander: Query<(&Altitude, &Velocity, &FuelTank, &ShipStatus), With<Lander>>,
+    lander: Query<(&Altitude, &Velocity, &FuelTank, &ShipStatus, &Thruster), With<Lander>>,
 ) {
-    let (altitude, velocity, fuel, status) = lander.single();
+    let (altitude, velocity, fuel, status, thruster) = lander.single();
     let mut text = text_box.single_mut();
 
     text.sections[0].value = format!(
-        "Altitude: {}m\nVelocity: {}m/s\nFuel: {}\nStatus: {:?}",
+        "Altitude: {}m\nVelocity: {}m/s\nFuel: {}\nStatus: {:?}\nThrust: {}",
         altitude.0 / 1000,
         velocity.0 / 1000,
         fuel.0,
-        status
+        status,
+        thruster.0,
     );
 }

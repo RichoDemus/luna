@@ -1,4 +1,6 @@
-use crate::physics::{calc_gravitational_pull, calc_movement_by_gravity, calc_touchdown};
+use crate::physics::{
+    calc_gravitational_pull, calc_movement_by_gravity, calc_thrust, calc_touchdown,
+};
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -8,26 +10,40 @@ pub(crate) struct LanderPlugin;
 impl Plugin for LanderPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, create_lander);
-        app.add_systems(Update, (touchdown, altitude_to_transform));
-        app.add_systems(FixedUpdate, (gravity, movement.after(gravity)));
+        app.add_systems(
+            FixedUpdate,
+            (
+                gravity,
+                thrust.after(gravity),
+                movement.after(thrust),
+                touchdown,
+                altitude_to_transform,
+            ),
+        );
     }
 }
 
 #[derive(Component)]
 pub struct Lander;
 
-#[derive(Component)]
+#[derive(Component, Debug, Copy, Clone)]
 pub struct Altitude(pub i32); //in millimeters
 
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default, Debug, Copy, Clone)]
 pub struct Velocity(pub i32); //in milimeters per second
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Default, Copy, Clone)]
+pub struct Thruster(pub u32);
+
+#[derive(Component, Debug, Copy, Clone)]
 pub struct FuelTank(pub u32);
+
+pub const STARTING_FUEL: u32 = 10000;
+pub const THRUSTER_TANK_SIZE: u32 = 60;
 
 impl Default for FuelTank {
     fn default() -> Self {
-        Self(1000)
+        Self(STARTING_FUEL)
     }
 }
 
@@ -46,6 +62,7 @@ pub fn create_lander(mut commands: Commands) {
         FuelTank::default(),
         Altitude(1000000),
         Velocity::default(),
+        Thruster::default(),
         ShapeBundle {
             path: GeometryBuilder::build_as(&RegularPolygon {
                 sides: 3,
@@ -73,7 +90,20 @@ pub fn gravity(mut bodies: Query<(&mut Velocity, &Altitude, &ShipStatus), With<L
         if status != &ShipStatus::Falling {
             continue;
         }
-        velocity.0 -= calc_gravitational_pull(altitude.0);
+        velocity.0 -= calc_gravitational_pull();
+    }
+}
+
+pub fn thrust(mut lander: Query<(&mut Velocity, &mut Thruster, &ShipStatus), With<Lander>>) {
+    for (mut velocity, mut thruster, ship_status) in &mut lander {
+        if ship_status != &ShipStatus::Falling {
+            continue;
+        }
+        if thruster.0 > 0 {
+            let (force, fuel_consumption) = calc_thrust();
+            velocity.0 += force;
+            thruster.0 = thruster.0.saturating_sub(fuel_consumption);
+        }
     }
 }
 
