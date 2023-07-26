@@ -1,3 +1,4 @@
+use crate::physics::{calc_gravitational_pull, calc_movement_by_gravity, calc_touchdown};
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -72,14 +73,7 @@ pub fn gravity(mut bodies: Query<(&mut Velocity, &Altitude, &ShipStatus), With<L
         if status != &ShipStatus::Falling {
             continue;
         }
-        let gravity_at_sea_level = 1.625;
-        let mean_moon_radius_meters = 1737400.;
-        let altitude_in_meters = (altitude.0 / 1000) as f64;
-        let acceleration = gravity_at_sea_level
-            * (mean_moon_radius_meters / (mean_moon_radius_meters + altitude_in_meters));
-        let delta = (acceleration * 17.) as i32;
-        // println!("Changing velocity from {} by {}. accel: {}", velocity.0, delta, acceleration);
-        velocity.0 -= delta;
+        velocity.0 -= calc_gravitational_pull(altitude.0);
     }
 }
 
@@ -89,25 +83,14 @@ pub fn movement(mut bodies: Query<(&Velocity, &mut Altitude, &ShipStatus)>) {
         if status != &ShipStatus::Falling {
             continue;
         }
-        if altitude.0 > 0 {
-            let delta = (velocity.0 / 60);
-            altitude.0 += delta;
-            // println!("Updated altitude to {} by {}", altitude.0, delta);
-        }
+        altitude.0 += calc_movement_by_gravity(altitude.0, velocity.0)
     }
 }
 
 pub fn touchdown(mut flying_ships: Query<(&Velocity, &Altitude, &mut ShipStatus), With<Lander>>) {
     for (velocity, altitude, mut status) in &mut flying_ships {
-        if altitude.0 > 5 {
-            continue;
-        }
-        if velocity.0.abs() > 10_000 {
-            // too fast
-            *status = ShipStatus::Crashed(velocity.0.abs());
-        } else {
-            *status = ShipStatus::Landed;
-            println!("LANDED!!!");
+        if let Some(new_state) = calc_touchdown(altitude.0, velocity.0) {
+            *status = new_state;
         }
     }
 }
