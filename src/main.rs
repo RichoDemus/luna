@@ -45,11 +45,14 @@ impl LanderEnv {
     /// Create a new environment with a given RNG seed.
     fn new(seed: u64) -> Self {
         Self {
-            g: 1.62,          // moon gravity ~1.62 m/s^2
-            thrust_acc: 5.0,  // thrust acceleration (should exceed gravity to be effective)
-            dt: 1./60.,          // timestep
-            max_steps: 2000,  // safety cap per episode
-            state: State { height: 100.0, velocity: 0.0 },
+            g: 1.62,         // moon gravity ~1.62 m/s^2
+            thrust_acc: 5.0, // thrust acceleration (should exceed gravity to be effective)
+            dt: 1. / 60.,    // timestep
+            max_steps: 2000, // safety cap per episode
+            state: State {
+                height: 100.0,
+                velocity: 0.0,
+            },
             rng: StdRng::seed_from_u64(seed),
         }
     }
@@ -58,7 +61,10 @@ impl LanderEnv {
     fn reset(&mut self) -> State {
         // NOTE: `r#gen` is used because `gen` is a reserved keyword in newer Rust.
         let h0 = 80.0 + self.rng.random::<f32>() * 40.0; // uniform in [80, 120)
-        self.state = State { height: h0, velocity: 0.0 };
+        self.state = State {
+            height: h0,
+            velocity: 0.0,
+        };
         self.state
     }
 
@@ -72,46 +78,38 @@ impl LanderEnv {
     /// - For touchdown when new_h <= 0 we estimate the exact touchdown time (t_hit)
     ///   inside the dt to compute a more accurate touchdown velocity.
     fn step(&mut self, action: usize) -> (State, f32, bool, f32) {
-        let prev = self.state;
-        let thrusters_on = (action == 1) as u8;
+        let State { height: prev_height, velocity: prev_velocity} = self.state;
+        let thrusters_on = action == 1;
 
-        // Upwards thrust decreases downward acceleration. Net accel (positive = increases downward velocity)
-        let accel = self.g - (thrusters_on as f32) * self.thrust_acc;
+        let accel = if thrusters_on { self.g - self.thrust_acc } else { self.g };
 
-        // Integrate velocity: v_new = v_prev + accel * dt
-        let new_v = prev.velocity + accel * self.dt;
+        let new_velocity = prev_velocity + accel * self.dt;
 
-        // Integrate height: h_new = h_prev - (v_prev * dt + 0.5 * accel * dt^2)
-        // subtract because positive v means going downward (height decreases)
-        let new_h = prev.height - (prev.velocity * self.dt + 0.5 * accel * self.dt * self.dt);
 
-        // Fuel used: 1.0 unit per second when thrusters on => fuel_used = thrusters_on * dt
-        let fuel_used = (thrusters_on as f32) * self.dt;
+        let avg_velocity_this_step = (prev_velocity + new_velocity) / 2.0;
+        let new_height = prev_height - avg_velocity_this_step * self.dt;
 
-        // If we've gone below the surface (new_h <= 0), compute touchdown velocity by estimating
-        // the fraction of dt when height became zero (linear-ish approx; dt is small).
-        if new_h <= 0.0 {
-            let denom = prev.height - new_h; // positive if we moved downward
-            // Avoid division by zero; if denom is tiny we'll just set t_hit = dt
-            let t_hit = if denom.abs() < 1e-6 {
-                self.dt
-            } else {
-                // fraction of dt when height hit zero: prev.h / denom * dt
-                self.dt * (prev.height / denom)
+        let fuel_used = if thrusters_on { self.dt } else { 0. };
+
+        if new_height <= 0.0 {
+            assert!(new_velocity >= 0., "Managed to land while moving upwards?, height: {prev_height} new_height:  {new_height} vel: {prev_velocity}, new_vl: {new_velocity}, thrusters on: {thrusters_on}, accel: {accel}");
+
+            self.state = State {
+                height: 0.0,
+                velocity: new_velocity,
             };
-            // velocity at hit: v_hit = prev.v + accel * t_hit
-            let v_hit = prev.velocity + accel * t_hit;
-            // set state to landed at h = 0 and v = v_hit
-            self.state = State { height: 0.0, velocity: v_hit };
             // success if absolute touchdown speed is less than threshold
             let safe_v = 1.0_f32;
-            let success = v_hit.abs() < safe_v;
+            let success = new_velocity.abs() < safe_v;
             let reward = if success { 1000.0 } else { -1000.0 };
             return (self.state, reward, true, fuel_used);
         }
 
         // Not landed yet: update the state normally
-        self.state = State { height: new_h, velocity: new_v };
+        self.state = State {
+            height: new_height,
+            velocity: new_velocity,
+        };
 
         (self.state, 0.0, false, fuel_used)
     }
@@ -131,14 +129,7 @@ struct Discretizer {
 }
 
 impl Discretizer {
-    fn new(
-        h_min: f32,
-        h_max: f32,
-        h_bins: usize,
-        v_min: f32,
-        v_max: f32,
-        v_bins: usize,
-    ) -> Self {
+    fn new(h_min: f32, h_max: f32, h_bins: usize, v_min: f32, v_max: f32, v_bins: usize) -> Self {
         Self {
             h_min,
             h_max,
@@ -184,14 +175,14 @@ fn main() {
         120,   // v_bins (velocity resolution)
     );
 
-    let n_actions = 2usize; // off or on
+    let number_of_actions = 2usize; // off or on
 
     // Q-table shaped as flattened 2D: (h_bins * v_bins) rows, each row has n_actions entries
     let q_rows = disc.h_bins * disc.v_bins;
-    let mut q_table = vec![0.0_f32; q_rows * n_actions];
+    let mut q_table = vec![0.0_f32; q_rows * number_of_actions];
 
     // Q-learning hyperparameters
-    let episodes = 1_000_000usize;
+    let episodes = 10_000usize;
     let max_steps_per_episode = 2_000usize;
     let alpha = 0.1_f32; // learning rate
     let gamma = 0.99_f32; // discount factor
@@ -227,12 +218,12 @@ fn main() {
                 rng.random_range(0..=1)
             } else {
                 // greedy action
-                let (greedy_action, _) = get_greedy_action_and_q_value(&q_table, row, n_actions);
+                let (greedy_action, _) = get_greedy_action_and_q_value(&q_table, row, number_of_actions);
                 greedy_action
             };
 
             // step the environment
-            let (s_next, terminal_reward, done, fuel_used) = env.step(action);
+            let (new_state, terminal_reward, done, fuel_used) = env.step(action);
 
             // immediate reward: step cost + fuel penalty + terminal reward (if any)
             let mut immediate_reward = fuel_cost_per_s * fuel_used;
@@ -242,24 +233,24 @@ fn main() {
             total_fuel += fuel_used;
 
             // discretize next state
-            let (h2, v2) = disc.discretize(s_next);
+            let (new_discretized_height, new_discretized_velocity) = disc.discretize(new_state);
 
             // Q-learning update:
             // Q(s,a) <- Q(s,a) + alpha * [r + gamma * max_a' Q(s', a') - Q(s,a)]
             let row_idx = h_idx * disc.v_bins + v_idx;
-            let q_index = row_idx * n_actions + action;
+            let q_index = row_idx * number_of_actions + action;
             let q_sa = q_table[q_index];
 
-            let row2 = h2 * disc.v_bins + v2;
-            let (_, q_sprime_max) = get_greedy_action_and_q_value(&q_table, row2, n_actions);
+            let row2 = new_discretized_height * disc.v_bins + new_discretized_velocity;
+            let (_, q_sprime_max) = get_greedy_action_and_q_value(&q_table, row2, number_of_actions);
 
             let td_target = immediate_reward + gamma * q_sprime_max;
             q_table[q_index] = q_sa + alpha * (td_target - q_sa);
 
             // advance to next state
-            s = s_next;
-            h_idx = h2;
-            v_idx = v2;
+            s = new_state;
+            h_idx = new_discretized_height;
+            v_idx = new_discretized_velocity;
 
             if done {
                 break;
@@ -303,8 +294,8 @@ fn main() {
         for _step in 0..max_steps_per_episode {
             // greedy action
             let row = h_idx * disc.v_bins + v_idx;
-            let (action, _) = get_greedy_action_and_q_value(&q_table, row, n_actions);
-            
+            let (action, _) = get_greedy_action_and_q_value(&q_table, row, number_of_actions);
+
             let (s_next, terminal_reward, done, fuel) = env.step(action);
             fuel_used += fuel;
 
@@ -342,55 +333,89 @@ fn main() {
     println!("- switch to a small neural net (DQN) when the state space grows");
     println!("- change rewards to encourage more fuel efficiency or smoother landings");
 
-    println!("Lets do a step by single landing to understand how this works");
-    {
-        let mut state = env.reset();
-        let (mut height, mut velocity) = disc.discretize(state);
-        let mut fuel_used = 0.0f32;
-        let mut steps = 0;
-        let mut step_window = 0;
-        let mut thrusts_in_current_window = 0;
-        let mut velocity_in_window = 0;
-        loop {
-            steps += 1;
-            step_window += 1;
-            let row = height * disc.v_bins + velocity;
-            let (action, _) = get_greedy_action_and_q_value(&q_table, row, n_actions);
+    println!("\nLearned policy (ASCII view, top = high height, left = slow velocity):");
+    print_q_table_ascii(&q_table, disc.h_bins, disc.v_bins, number_of_actions);
 
-            let (next_state, reward, done, fuel) = env.step(action);
-            fuel_used += fuel;
 
-            if action == 1 {
-                thrusts_in_current_window += 1;
-            }
-            velocity_in_window += velocity;
-
-            if step_window == 10 {
-                println!("{}\t{thrusts_in_current_window}", velocity_in_window / 10);
-                step_window = 0;
-                thrusts_in_current_window = 0;
-                velocity_in_window = 0;
-            }
-            if done {
-                println!("\ndone in {steps} steps, reward {reward}, {fuel_used} fuel used");
-                break;
-            }
-
-            let (next_height, next_velocity) = disc.discretize(next_state);
-            state = next_state;
-            height = next_height;
-            velocity = next_velocity;
-        }
-            }
+    // println!("Lets do a step by single landing to understand how this works");
+    // {
+    //     let mut state = env.reset();
+    //     let (mut height, mut velocity) = disc.discretize(state);
+    //     let mut fuel_used = 0.0f32;
+    //     let mut steps = 0;
+    //     let mut step_window = 0;
+    //     let mut thrusts_in_current_window = 0;
+    //     let mut velocity_in_window = 0;
+    //     loop {
+    //         steps += 1;
+    //         step_window += 1;
+    //         let row = height * disc.v_bins + velocity;
+    //         let (action, _) = get_greedy_action_and_q_value(&q_table, row, n_actions);
+    //
+    //         let (next_state, reward, done, fuel) = env.step(action);
+    //         fuel_used += fuel;
+    //
+    //         if action == 1 {
+    //             thrusts_in_current_window += 1;
+    //         }
+    //         velocity_in_window += velocity;
+    //
+    //         if step_window == 10 {
+    //             println!("{}\t{thrusts_in_current_window}", velocity_in_window / 10);
+    //             step_window = 0;
+    //             thrusts_in_current_window = 0;
+    //             velocity_in_window = 0;
+    //         }
+    //         if done {
+    //             println!("\ndone in {steps} steps, reward {reward}, {fuel_used} fuel used");
+    //             break;
+    //         }
+    //
+    //         let (next_height, next_velocity) = disc.discretize(next_state);
+    //         state = next_state;
+    //         height = next_height;
+    //         velocity = next_velocity;
+    //     }
+    // }
 }
 
 /// Helper to get the greedy action and its Q-value from the Q-table for a given state row.
 fn get_greedy_action_and_q_value(q_table: &[f32], row: usize, n_actions: usize) -> (usize, f32) {
     let q0 = q_table[row * n_actions + 0];
     let q1 = q_table[row * n_actions + 1];
-    if q1 > q0 {
-        (1, q1)
-    } else {
-        (0, q0)
+    if q1 > q0 { (1, q1) } else { (0, q0) }
+}
+
+/// Prints a simple ASCII visualization of the Q-table.
+///
+/// For each discrete height row, we print a character for each velocity column:
+/// - '^' : thrusters ON is better
+/// - '_' : thrusters OFF is better
+/// - '·' : neutral / very close
+///
+/// This is a terminal-friendly "heatmap" of the learned policy.
+/// `q_table` is flattened as in your main code: q[state_index * n_actions + action]
+fn print_q_table_ascii(
+    q_table: &Vec<f32>,
+    h_bins: usize,
+    v_bins: usize,
+    n_actions: usize,
+) {
+    for h_idx in (0..h_bins).rev() { // print top height first
+        let mut row_str = String::new();
+        for v_idx in 0..v_bins {
+            let row = h_idx * v_bins + v_idx;
+            let q_off = q_table[row * n_actions + 0];
+            let q_on  = q_table[row * n_actions + 1];
+            let symbol = if (q_on - q_off).abs() < 1e-3 {
+                '·'  // roughly equal
+            } else if q_on > q_off {
+                '^'  // thrust
+            } else {
+                '_'  // no thrust
+            };
+            row_str.push(symbol);
+        }
+        println!("{}", row_str);
     }
 }
