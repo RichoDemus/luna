@@ -20,7 +20,10 @@
 //!
 //! Lots of comments so you can follow what's happening.
 
+mod q;
+
 use rand::prelude::*;
+use crate::q::QTable;
 
 /// Single-step environment state
 #[derive(Clone, Copy, Debug)]
@@ -153,6 +156,11 @@ impl Discretizer {
     }
 }
 
+pub const HEIGHT_BINS: usize = 120;
+pub const VELOCITY_BINS: usize = 120;
+pub const Q_ROWS: usize = HEIGHT_BINS * VELOCITY_BINS;
+pub const NUMBER_OF_ACTIONS: usize  = 2;
+
 fn main() {
     // ---------- Hyperparameters & setup ----------
     let seed = 12345_u64;
@@ -164,17 +172,18 @@ fn main() {
     let disc = Discretizer::new(
         0.0,   // h_min
         150.0, // h_max (we will start in ~[80,120], but allow margin)
-        120,   // h_bins (height resolution)
+        HEIGHT_BINS,   // h_bins (height resolution)
         -20.0, // v_min (allow some upward velocities negative)
         50.0,  // v_max (fast downward speeds)
-        120,   // v_bins (velocity resolution)
+        VELOCITY_BINS,   // v_bins (velocity resolution)
     );
 
     let number_of_actions = 2usize; // off or on
 
     // Q-table shaped as flattened 2D: (h_bins * v_bins) rows, each row has n_actions entries
     let q_rows = disc.h_bins * disc.v_bins;
-    let mut q_table = vec![0.0_f32; q_rows * number_of_actions];
+    //let mut q_table = vec![0.0_f32; q_rows * number_of_actions];
+    let mut q_table = QTable::new();
 
     // Q-learning hyperparameters
     let episodes = 100_000usize;
@@ -201,19 +210,18 @@ fn main() {
         // reset environment and state
         let s0 = env.reset();
         let mut s = s0;
-        let (mut h_idx, mut v_idx) = disc.discretize(s);
+        let (mut discretized_height, mut discretized_velocity) = disc.discretize(s);
         let mut total_reward = 0.0_f32;
         let mut total_fuel = 0.0_f32;
 
         for _step in 0..max_steps_per_episode {
             // choose action via epsilon-greedy
-            let row = h_idx * disc.v_bins + v_idx;
             let action = if rng.random::<f32>() < eps {
                 // random action
                 rng.random_range(0..=1)
             } else {
                 // greedy action
-                let (greedy_action, _) = get_greedy_action_and_q_value(&q_table, row, number_of_actions);
+                let (greedy_action, _) = q_table.get_greedy_action_and_q_value(discretized_height, discretized_velocity);
                 greedy_action
             };
 
@@ -232,20 +240,19 @@ fn main() {
 
             // Q-learning update:
             // Q(s,a) <- Q(s,a) + alpha * [r + gamma * max_a' Q(s', a') - Q(s,a)]
-            let row_idx = h_idx * disc.v_bins + v_idx;
-            let q_index = row_idx * number_of_actions + action;
-            let q_sa = q_table[q_index];
-
-            let row2 = new_discretized_height * disc.v_bins + new_discretized_velocity;
-            let (_, q_sprime_max) = get_greedy_action_and_q_value(&q_table, row2, number_of_actions);
-
-            let td_target = immediate_reward + gamma * q_sprime_max;
-            q_table[q_index] = q_sa + alpha * (td_target - q_sa);
+            q_table.q_update(
+                discretized_height,
+                new_discretized_height,
+                discretized_velocity,
+                new_discretized_velocity,
+                action,
+                immediate_reward,
+            );
 
             // advance to next state
             s = new_state;
-            h_idx = new_discretized_height;
-            v_idx = new_discretized_velocity;
+            discretized_height = new_discretized_height;
+            discretized_velocity = new_discretized_velocity;
 
             if done {
                 break;
@@ -282,14 +289,14 @@ fn main() {
 
     for _ in 0..eval_episodes {
         let mut s = env.reset();
-        let (mut h_idx, mut v_idx) = disc.discretize(s);
+        let (mut discretized_height, mut discretized_velocity) = disc.discretize(s);
         let mut fuel_used = 0.0_f32;
         let mut touchdown_v: Option<f32> = None;
 
         for _step in 0..max_steps_per_episode {
             // greedy action
-            let row = h_idx * disc.v_bins + v_idx;
-            let (action, _) = get_greedy_action_and_q_value(&q_table, row, number_of_actions);
+
+            let (action, _) = q_table.get_greedy_action_and_q_value(discretized_height, discretized_velocity);
 
             let (s_next, terminal_reward, done, fuel) = env.step(action);
             fuel_used += fuel;
@@ -304,8 +311,8 @@ fn main() {
 
             let (h2, v2) = disc.discretize(s_next);
             s = s_next;
-            h_idx = h2;
-            v_idx = v2;
+            discretized_height = h2;
+            discretized_velocity = v2;
         }
 
         total_eval_fuel += fuel_used;
@@ -329,88 +336,5 @@ fn main() {
     println!("- change rewards to encourage more fuel efficiency or smoother landings");
 
     println!("\nLearned policy (ASCII view, top = high height, left = slow velocity):");
-    print_q_table_ascii(&q_table, disc.h_bins, disc.v_bins, number_of_actions);
-
-
-    // println!("Lets do a step by single landing to understand how this works");
-    // {
-    //     let mut state = env.reset();
-    //     let (mut height, mut velocity) = disc.discretize(state);
-    //     let mut fuel_used = 0.0f32;
-    //     let mut steps = 0;
-    //     let mut step_window = 0;
-    //     let mut thrusts_in_current_window = 0;
-    //     let mut velocity_in_window = 0;
-    //     loop {
-    //         steps += 1;
-    //         step_window += 1;
-    //         let row = height * disc.v_bins + velocity;
-    //         let (action, _) = get_greedy_action_and_q_value(&q_table, row, n_actions);
-    //
-    //         let (next_state, reward, done, fuel) = env.step(action);
-    //         fuel_used += fuel;
-    //
-    //         if action == 1 {
-    //             thrusts_in_current_window += 1;
-    //         }
-    //         velocity_in_window += velocity;
-    //
-    //         if step_window == 10 {
-    //             println!("{}\t{thrusts_in_current_window}", velocity_in_window / 10);
-    //             step_window = 0;
-    //             thrusts_in_current_window = 0;
-    //             velocity_in_window = 0;
-    //         }
-    //         if done {
-    //             println!("\ndone in {steps} steps, reward {reward}, {fuel_used} fuel used");
-    //             break;
-    //         }
-    //
-    //         let (next_height, next_velocity) = disc.discretize(next_state);
-    //         state = next_state;
-    //         height = next_height;
-    //         velocity = next_velocity;
-    //     }
-    // }
-}
-
-/// Helper to get the greedy action and its Q-value from the Q-table for a given state row.
-fn get_greedy_action_and_q_value(q_table: &[f32], row: usize, n_actions: usize) -> (usize, f32) {
-    let q0 = q_table[row * n_actions + 0];
-    let q1 = q_table[row * n_actions + 1];
-    if q1 > q0 { (1, q1) } else { (0, q0) }
-}
-
-/// Prints a simple ASCII visualization of the Q-table.
-///
-/// For each discrete height row, we print a character for each velocity column:
-/// - '^' : thrusters ON is better
-/// - '_' : thrusters OFF is better
-/// - '·' : neutral / very close
-///
-/// This is a terminal-friendly "heatmap" of the learned policy.
-/// `q_table` is flattened as in your main code: q[state_index * n_actions + action]
-fn print_q_table_ascii(
-    q_table: &Vec<f32>,
-    h_bins: usize,
-    v_bins: usize,
-    n_actions: usize,
-) {
-    for h_idx in (0..h_bins).rev() { // print top height first
-        let mut row_str = String::new();
-        for v_idx in 0..v_bins {
-            let row = h_idx * v_bins + v_idx;
-            let q_off = q_table[row * n_actions + 0];
-            let q_on  = q_table[row * n_actions + 1];
-            let symbol = if (q_on - q_off).abs() < 1e-3 {
-                '·'  // roughly equal
-            } else if q_on > q_off {
-                '^'  // thrust
-            } else {
-                '_'  // no thrust
-            };
-            row_str.push(symbol);
-        }
-        println!("{}", row_str);
-    }
+    q_table.print();
 }
