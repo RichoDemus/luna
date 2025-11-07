@@ -57,10 +57,8 @@ impl LanderEnv {
     }
 
     fn step(&mut self, action: usize) -> (State, f32, bool, f32) {
-        let State {
-            height: prev_height,
-            velocity: prev_velocity,
-        } = self.state;
+        let prev_height = self.state.height;
+        let prev_velocity = self.state.velocity;
         let thrusters_on = action == 1;
 
         let accel = if thrusters_on { self.g - self.thrust_acc } else { self.g };
@@ -88,10 +86,8 @@ impl LanderEnv {
             return (self.state, reward, true, fuel_used);
         }
 
-        self.state = State {
-            height: new_height,
-            velocity: new_velocity,
-        };
+        self.state.height = new_height;
+        self.state.velocity = new_velocity;
         (self.state, 0.0, false, fuel_used)
     }
 }

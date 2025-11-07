@@ -41,6 +41,7 @@ impl QLearning {
         }
     }
 
+    #[inline(always)]
     pub fn get_action_epsilon_greedy(
         &mut self,
         discretized_height: DiscretizedHeight,
@@ -58,6 +59,7 @@ impl QLearning {
         self.epsilon = (self.epsilon * self.epsilon_decay).clamp(self.epsilon_min, 1.0);
     }
 
+    #[inline(always)]
     pub fn q_update(
         &mut self,
         discretized_height: DiscretizedHeight,
