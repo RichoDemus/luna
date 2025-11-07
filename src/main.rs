@@ -1,29 +1,13 @@
-//! 1D Lunar Lander (tabular Q-learning)
-//!
-//! - State: height (m) and vertical velocity (m/s).
-//!   * We use `v` positive = downward (so gravity increases v).
-//! - Actions:
-//!   0 -> thrusters OFF
-//!   1 -> thrusters ON (upwards acceleration)
-//! - Goal: touch down with |velocity_at_touchdown| < SAFE_V (1 m/s).
-//! - Reward:
-//!   * Big +100 for soft landing, -100 for crash.
-//!   * Small per-step penalty to encourage finishing sooner.
-//!   * Fuel penalty when thrusters are used.
-//!
-//! This file implements:
-//! - simple physics integration (constant acceleration over dt)
-//! - interpolation for touchdown velocity when step overshoots surface
-//! - discretization of continuous state into a tabular grid
-//! - epsilon-greedy Q-learning loop
-//! - final evaluation of learned greedy policy
-//!
-//! Lots of comments so you can follow what's happening.
-
 mod q;
 
 use rand::prelude::*;
-use crate::q::QTable;
+use crate::q::QLearning;
+
+pub const HEIGHT_BINS: usize = 120;
+pub const VELOCITY_BINS: usize = 120;
+pub const Q_ROWS: usize = HEIGHT_BINS * VELOCITY_BINS;
+pub const NUMBER_OF_ACTIONS: usize  = 2;
+pub const EPISODES:usize = 500_000;
 
 /// Single-step environment state
 #[derive(Clone, Copy, Debug)]
@@ -156,16 +140,11 @@ impl Discretizer {
     }
 }
 
-pub const HEIGHT_BINS: usize = 120;
-pub const VELOCITY_BINS: usize = 120;
-pub const Q_ROWS: usize = HEIGHT_BINS * VELOCITY_BINS;
-pub const NUMBER_OF_ACTIONS: usize  = 2;
-
 fn main() {
     // ---------- Hyperparameters & setup ----------
     let seed = 12345_u64;
     let mut env = LanderEnv::new(seed);
-    let mut rng = StdRng::seed_from_u64(seed ^ 0xDEADBEEF);
+    let mut q_learning = QLearning::new(seed);
 
     // Discretization grid for (height, velocity)
     // Adjust bins for desired resolution. More bins -> larger table -> slower learning.
@@ -183,18 +162,9 @@ fn main() {
     // Q-table shaped as flattened 2D: (h_bins * v_bins) rows, each row has n_actions entries
     let q_rows = disc.h_bins * disc.v_bins;
     //let mut q_table = vec![0.0_f32; q_rows * number_of_actions];
-    let mut q_table = QTable::new();
 
-    // Q-learning hyperparameters
-    let episodes = 100_000usize;
+
     let max_steps_per_episode = 2_000usize;
-    let alpha = 0.1_f32; // learning rate
-    let gamma = 0.99_f32; // discount factor
-
-    // epsilon-greedy exploration
-    let mut eps = 1.0_f32; // start fully random
-    let eps_min = 0.05_f32; // minimal exploration
-    let eps_decay = 0.9995_f32; // per-episode multiplicative decay
 
     // Reward shaping: step cost encourages finishing quickly; fuel cost penalizes thruster use
     let fuel_cost_per_s = -1.0_f32; // multiplied by dt when thrusters are on
@@ -204,9 +174,9 @@ fn main() {
     let mut reward_accum = 0.0_f32;
     let mut success_count_window = 0usize;
 
-    println!("Starting training: {} episodes", episodes);
+    println!("Starting training: {} episodes", EPISODES);
 
-    for ep in 1..=episodes {
+    for ep in 1..=EPISODES {
         // reset environment and state
         let s0 = env.reset();
         let mut s = s0;
@@ -215,32 +185,19 @@ fn main() {
         let mut total_fuel = 0.0_f32;
 
         for _step in 0..max_steps_per_episode {
-            // choose action via epsilon-greedy
-            let action = if rng.random::<f32>() < eps {
-                // random action
-                rng.random_range(0..=1)
-            } else {
-                // greedy action
-                let (greedy_action, _) = q_table.get_greedy_action_and_q_value(discretized_height, discretized_velocity);
-                greedy_action
-            };
+            let action = q_learning.get_action_epsilon_greedy(discretized_height, discretized_velocity);
 
-            // step the environment
             let (new_state, terminal_reward, done, fuel_used) = env.step(action);
 
-            // immediate reward: step cost + fuel penalty + terminal reward (if any)
             let mut immediate_reward = fuel_cost_per_s * fuel_used;
             immediate_reward += terminal_reward; // +100 or -100 if landing happened
 
             total_reward += immediate_reward;
             total_fuel += fuel_used;
 
-            // discretize next state
             let (new_discretized_height, new_discretized_velocity) = disc.discretize(new_state);
 
-            // Q-learning update:
-            // Q(s,a) <- Q(s,a) + alpha * [r + gamma * max_a' Q(s', a') - Q(s,a)]
-            q_table.q_update(
+            q_learning.q_update(
                 discretized_height,
                 new_discretized_height,
                 discretized_velocity,
@@ -260,7 +217,7 @@ fn main() {
         } // end episode steps
 
         // decay epsilon
-        eps = (eps * eps_decay).clamp(eps_min, 1.0);
+        q_learning.decay_epsilon();
 
         // logging window
         reward_accum += total_reward;
@@ -272,7 +229,7 @@ fn main() {
             let avg_reward = reward_accum / (report_every as f32);
             println!(
                 "Episode {:5} | avg reward (last {}) = {:7.2} | successes = {}/{} | eps = {:.3}",
-                ep, report_every, avg_reward, success_count_window, report_every, eps
+                ep, report_every, avg_reward, success_count_window, report_every, q_learning.epsilon
             );
             reward_accum = 0.0;
             success_count_window = 0;
@@ -294,9 +251,7 @@ fn main() {
         let mut touchdown_v: Option<f32> = None;
 
         for _step in 0..max_steps_per_episode {
-            // greedy action
-
-            let (action, _) = q_table.get_greedy_action_and_q_value(discretized_height, discretized_velocity);
+            let (action, _) = q_learning.get_greedy_action_and_q_value(discretized_height, discretized_velocity);
 
             let (s_next, terminal_reward, done, fuel) = env.step(action);
             fuel_used += fuel;
@@ -320,6 +275,7 @@ fn main() {
     }
 
     let eval_n = eval_episodes as f32;
+    q_learning.print();
     println!("=== EVALUATION SUMMARY ===");
     println!(
         "Success rate: {}/{} ({:.1}%)",
@@ -330,11 +286,4 @@ fn main() {
     println!("Avg fuel per episode: {:.4}", total_eval_fuel / eval_n);
     println!("Avg touchdown speed (m/s): {:.4}", avg_touch_v / eval_n);
 
-    println!("Done. If you want, we can:");
-    println!("- increase discretization resolution (more bins) for finer control");
-    println!("- switch to a small neural net (DQN) when the state space grows");
-    println!("- change rewards to encourage more fuel efficiency or smoother landings");
-
-    println!("\nLearned policy (ASCII view, top = high height, left = slow velocity):");
-    q_table.print();
 }
