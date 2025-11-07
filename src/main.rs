@@ -57,12 +57,9 @@ impl LanderEnv {
         }
     }
 
-    /// Reset the environment. We randomize the starting height a bit so agent can't overfit.
     fn reset(&mut self) -> State {
-        // NOTE: `r#gen` is used because `gen` is a reserved keyword in newer Rust.
-        let h0 = 80.0 + self.rng.random::<f32>() * 40.0; // uniform in [80, 120)
         self.state = State {
-            height: h0,
+            height: self.rng.random_range(80.0..120.0),
             velocity: 0.0,
         };
         self.state
@@ -85,9 +82,7 @@ impl LanderEnv {
 
         let new_velocity = prev_velocity + accel * self.dt;
 
-
-        let avg_velocity_this_step = (prev_velocity + new_velocity) / 2.0;
-        let new_height = prev_height - avg_velocity_this_step * self.dt;
+        let new_height = prev_height - new_velocity * self.dt;
 
         let fuel_used = if thrusters_on { self.dt } else { 0. };
 
@@ -182,7 +177,7 @@ fn main() {
     let mut q_table = vec![0.0_f32; q_rows * number_of_actions];
 
     // Q-learning hyperparameters
-    let episodes = 10_000usize;
+    let episodes = 100_000usize;
     let max_steps_per_episode = 2_000usize;
     let alpha = 0.1_f32; // learning rate
     let gamma = 0.99_f32; // discount factor
