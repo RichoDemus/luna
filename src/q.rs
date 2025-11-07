@@ -4,7 +4,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 pub struct QLearning {
-    table: [f32; Q_ROWS * NUMBER_OF_ACTIONS],
+    pub table: [f32; Q_ROWS * NUMBER_OF_ACTIONS],
     learning_rate_alpha: f32,
     discount_factor_gamma: f32,
     pub epsilon: f32,
@@ -78,7 +78,7 @@ impl QLearning {
         self.table[q_index] = q_value + self.learning_rate_alpha * (td_target - q_value);
     }
 
-    pub fn print(self) {
+    pub fn print(&self) {
         println!("\nLearned policy (ASCII view, top = high height, left = slow velocity):");
         for h_idx in (0..HEIGHT_BINS).rev() {
             // print top height first

@@ -2,18 +2,20 @@ mod q;
 mod types;
 
 use crate::q::QLearning;
-use crate::types::{DiscretizedHeight, DiscretizedVelocity, Height, Velocity};
+use crate::types::{Height, Velocity};
 use rand::prelude::*;
+use std::collections::HashSet;
 
-const MIN_HEIGHT: f32 = 0.0;
-const MAX_HEIGHT: f32 = 150.0;
-const MIN_VELOCITY: f32 = -20.0;
-const MAX_VELOCITY: f32 = 50.0;
-pub const HEIGHT_BINS: usize = 120;
-pub const VELOCITY_BINS: usize = 120;
-pub const Q_ROWS: usize = HEIGHT_BINS * VELOCITY_BINS;
-pub const NUMBER_OF_ACTIONS: usize = 2;
-pub const EPISODES: usize = 500_000;
+pub(crate) const MIN_HEIGHT: f32 = 0.0;
+pub(crate) const MAX_HEIGHT: f32 = 150.0;
+pub(crate) const MIN_VELOCITY: f32 = -20.0;
+pub(crate) const MAX_VELOCITY: f32 = 50.0;
+pub(crate) const HEIGHT_BINS: usize = 120;
+pub(crate) const VELOCITY_BINS: usize = 120;
+pub(crate) const Q_ROWS: usize = HEIGHT_BINS * VELOCITY_BINS;
+pub(crate) const NUMBER_OF_ACTIONS: usize = 2;
+pub(crate) const EPISODES: usize = 500_000;
+pub(crate) const MAX_STEPS_PER_EPISODE: usize = 2_000usize;
 
 /// Single-step environment state
 #[derive(Copy, Clone)]
@@ -27,7 +29,6 @@ struct LanderEnv {
     g: f32,          // gravity (m/s^2)
     thrust_acc: f32, // upward acceleration produced when thrusters are ON (m/s^2)
     dt: f32,         // timestep (s)
-    max_steps: usize,
     state: State,
     rng: StdRng,
 }
@@ -39,7 +40,6 @@ impl LanderEnv {
             g: 1.62,         // moon gravity ~1.62 m/s^2
             thrust_acc: 5.0, // thrust acceleration (should exceed gravity to be effective)
             dt: 1. / 60.,    // timestep
-            max_steps: 2000, // safety cap per episode
             state: State {
                 height: 100.0.into(),
                 velocity: 0.0.into(),
@@ -56,15 +56,6 @@ impl LanderEnv {
         self.state
     }
 
-    /// Step the environment by taking `action` (0 or 1).
-    ///
-    /// Returns: (next_state, terminal_reward_if_any, done, fuel_used_this_step)
-    ///
-    /// Notes:
-    /// - We compute net accel = gravity - (thruster_on * thrust_acc).
-    ///   Since v is positive downward, gravity increases v; thrust reduces v.
-    /// - For touchdown when new_h <= 0 we estimate the exact touchdown time (t_hit)
-    ///   inside the dt to compute a more accurate touchdown velocity.
     fn step(&mut self, action: usize) -> (State, f32, bool, f32) {
         let State {
             height: prev_height,
@@ -97,56 +88,37 @@ impl LanderEnv {
             return (self.state, reward, true, fuel_used);
         }
 
-        // Not landed yet: update the state normally
         self.state = State {
             height: new_height,
             velocity: new_velocity,
         };
-
         (self.state, 0.0, false, fuel_used)
     }
 }
 
-fn main() {
-    // ---------- Hyperparameters & setup ----------
-    let seed = 12345_u64;
-    let mut env = LanderEnv::new(seed);
-    let mut q_learning = QLearning::new(seed);
+fn train(env: &mut LanderEnv, q_learning: &mut QLearning) {
+    let fuel_cost_per_s = -1.0_f32;
 
-    let max_steps_per_episode = 2_000usize;
-
-    // Reward shaping: step cost encourages finishing quickly; fuel cost penalizes thruster use
-    let fuel_cost_per_s = -1.0_f32; // multiplied by dt when thrusters are on
-
-    // reporting
-    let report_every = 100usize;
-    let mut reward_accum = 0.0_f32;
-    let mut success_count_window = 0usize;
-
-    println!("Starting training: {} episodes", EPISODES);
-
-    for ep in 1..=EPISODES {
-        // reset environment and state
+    for _ in 1..=EPISODES {
         let s0 = env.reset();
-        let mut s = s0;
-        let mut discretized_height = s.height.discretize();
-        let mut discretized_velocity = s.velocity.discretize();
-        let mut total_reward = 0.0_f32;
-        let mut total_fuel = 0.0_f32;
+        let mut state = s0;
+        let mut _total_reward = 0.0_f32;
+        let mut _total_fuel = 0.0_f32;
 
-        for _step in 0..max_steps_per_episode {
+        for _step in 0..MAX_STEPS_PER_EPISODE {
+            let discretized_height = state.height.discretize();
+            let discretized_velocity = state.velocity.discretize();
             let action = q_learning.get_action_epsilon_greedy(discretized_height, discretized_velocity);
 
             let (new_state, terminal_reward, done, fuel_used) = env.step(action);
+            state = new_state;
+            let immediate_reward = fuel_cost_per_s * fuel_used + terminal_reward;
 
-            let mut immediate_reward = fuel_cost_per_s * fuel_used;
-            immediate_reward += terminal_reward; // +100 or -100 if landing happened
+            _total_reward += immediate_reward;
+            _total_fuel += fuel_used;
 
-            total_reward += immediate_reward;
-            total_fuel += fuel_used;
-
-            let new_discretized_height = new_state.height.discretize();
-            let new_discretized_velocity = new_state.velocity.discretize();
+            let new_discretized_height = state.height.discretize();
+            let new_discretized_velocity = state.velocity.discretize();
 
             q_learning.q_update(
                 discretized_height,
@@ -157,52 +129,37 @@ fn main() {
                 immediate_reward,
             );
 
-            // advance to next state
-            s = new_state;
-            discretized_height = new_discretized_height;
-            discretized_velocity = new_discretized_velocity;
-
             if done {
                 break;
             }
-        } // end episode steps
+        }
 
-        // decay epsilon
         q_learning.decay_epsilon();
+    }
+}
 
-        // logging window
-        reward_accum += total_reward;
-        if total_reward > 0.0 {
-            success_count_window += 1;
-        }
+struct EvaluationResults {
+    successes: usize,
+    eval_episodes: usize,
+    eval_n: f32,
+    total_eval_fuel: f32,
+    avg_touch_v: f32,
+}
 
-        if ep % report_every == 0 {
-            let avg_reward = reward_accum / (report_every as f32);
-            println!(
-                "Episode {:5} | avg reward (last {}) = {:7.2} | successes = {}/{} | eps = {:.3}",
-                ep, report_every, avg_reward, success_count_window, report_every, q_learning.epsilon
-            );
-            reward_accum = 0.0;
-            success_count_window = 0;
-        }
-    } // training loop
-
-    // ---------- Evaluation ----------
-    println!("Training finished. Evaluating greedy policy...");
-
+fn eval(env: &mut LanderEnv, q_learning: &mut QLearning) -> EvaluationResults {
     let eval_episodes = 200usize;
     let mut successes = 0usize;
     let mut total_eval_fuel = 0.0_f32;
     let mut avg_touch_v = 0.0_f32;
 
     for _ in 0..eval_episodes {
-        let mut s = env.reset();
+        let s = env.reset();
         let mut discretized_height = s.height.discretize();
         let mut discretized_velocity = s.velocity.discretize();
         let mut fuel_used = 0.0_f32;
         let mut touchdown_v: Option<f32> = None;
 
-        for _step in 0..max_steps_per_episode {
+        for _step in 0..MAX_STEPS_PER_EPISODE {
             let (action, _) = q_learning.get_greedy_action_and_q_value(discretized_height, discretized_velocity);
 
             let (s_next, terminal_reward, done, fuel) = env.step(action);
@@ -219,7 +176,6 @@ fn main() {
             let h2 = s_next.height.discretize();
             let v2 = s_next.velocity.discretize();
 
-            s = s_next;
             discretized_height = h2;
             discretized_velocity = v2;
         }
@@ -229,14 +185,137 @@ fn main() {
     }
 
     let eval_n = eval_episodes as f32;
+    EvaluationResults {
+        successes,
+        eval_episodes,
+        eval_n,
+        total_eval_fuel,
+        avg_touch_v,
+    }
+}
+
+fn train_and_evaluate(seed: u64) -> (QLearning, EvaluationResults) {
+    let mut env = LanderEnv::new(seed);
+    let mut q_learning = QLearning::new(seed);
+
+    println!("Starting training: {} episodes", EPISODES);
+    train(&mut env, &mut q_learning);
+    println!("Training finished. Evaluating greedy policy...");
+    let results = eval(&mut env, &mut q_learning);
+    (q_learning, results)
+}
+
+fn main() {
+    let seed = 12345_u64;
+    let (q_learning, results) = train_and_evaluate(seed);
+
     q_learning.print();
+    print_value_heatmap(
+        &q_learning.table.to_vec(),
+        HEIGHT_BINS,
+        VELOCITY_BINS,
+        NUMBER_OF_ACTIONS,
+    );
     println!("=== EVALUATION SUMMARY ===");
     println!(
         "Success rate: {}/{} ({:.1}%)",
-        successes,
-        eval_episodes,
-        100.0 * (successes as f32) / eval_n
+        results.successes,
+        results.eval_episodes,
+        100.0 * (results.successes as f32) / results.eval_n
     );
-    println!("Avg fuel per episode: {:.4}", total_eval_fuel / eval_n);
-    println!("Avg touchdown speed (m/s): {:.4}", avg_touch_v / eval_n);
+    println!("Avg fuel per episode: {:.4}", results.total_eval_fuel / results.eval_n);
+    println!("Avg touchdown speed (m/s): {:.4}", results.avg_touch_v / results.eval_n);
+    let (min, max) = q_learning
+        .table
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(min, max), nxt| (min.min(*nxt), max.max(*nxt)));
+    println!("min reward: {min}, max reward: {max}");
+}
+
+fn print_value_heatmap(q_table: &Vec<f32>, h_bins: usize, v_bins: usize, n_actions: usize) {
+    let mut values = vec![0.0_f32; h_bins * v_bins];
+    let mut v_min = f32::INFINITY;
+    let mut v_max = f32::NEG_INFINITY;
+
+    for h in 0..h_bins {
+        for v in 0..v_bins {
+            let row = h * v_bins + v;
+            let mut best = f32::NEG_INFINITY;
+            for a in 0..n_actions {
+                let idx = row * n_actions + a;
+                let q = q_table[idx];
+                if q > best {
+                    best = q;
+                }
+            }
+            if best.is_infinite() {
+                best = 0.0;
+            }
+            values[row] = best;
+            if best < v_min {
+                v_min = best;
+            }
+            if best > v_max {
+                v_max = best;
+            }
+        }
+    }
+
+    let range = if (v_max - v_min).abs() < 1e-6 {
+        1.0
+    } else {
+        v_max - v_min
+    };
+
+    // Character ramp (low -> high). You can replace with any characters you like.
+    let ramp = [' ', '.', ':', '-', '=', '+', '*', '#', '%', '@'];
+
+    println!("\nState-value heatmap (V = max_a Q(s,a))");
+    println!("Top row = high height. Left = low velocity, Right = high downward velocity");
+    println!("Value range: min = {:+.3}, max = {:+.3}\n", v_min, v_max);
+
+    for h in (0..h_bins).rev() {
+        // print highest height first
+        let mut line = String::with_capacity(v_bins);
+        for v in 0..v_bins {
+            let row = h * v_bins + v;
+            let val = values[row];
+            // normalize to 0..1
+            let norm = (val - v_min) / range;
+            // index into ramp
+            let idx = (norm * ((ramp.len() - 1) as f32)).round() as usize;
+            let ch = ramp[idx];
+            line.push(ch);
+        }
+        if line.chars().collect::<HashSet<char>>().len() != 1 {
+            println!("{}", line);
+        }
+    }
+
+    // Legend for ramp
+    print!("Legend: ");
+    for (i, c) in ramp.iter().enumerate() {
+        let frac = (i as f32) / ((ramp.len() - 1) as f32);
+        let val_repr = v_min + frac * range;
+        print!("{}({:+.2}) ", c, val_repr);
+    }
+    println!("\n");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_train_and_evaluate() {
+        let seed = 12345_u64;
+        let (_q_learning, results) = train_and_evaluate(seed);
+
+        let epsilon = 1e-6;
+        assert_eq!(results.successes, 200);
+        let velocities = results.avg_touch_v;
+        assert!((velocities - 79.8145).abs() < epsilon, "{velocities} != 79.8145");
+        let fuel = results.total_eval_fuel;
+        assert!((fuel - 980.7349).abs() < epsilon, "{fuel} != 980.7349");
+    }
 }
