@@ -1,6 +1,8 @@
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use crate::{HEIGHT_BINS, NUMBER_OF_ACTIONS, Q_ROWS, VELOCITY_BINS};
+use crate::types::{DiscretizedHeight, DiscretizedVelocity};
+
 pub struct QLearning {
     table: [f32;Q_ROWS * NUMBER_OF_ACTIONS],
     learning_rate_alpha: f32,
@@ -26,16 +28,20 @@ impl QLearning {
 
     pub fn get_greedy_action_and_q_value(
         &self,
-        discretized_height:usize,
-        discretized_velocity:usize,
+        discretized_height:DiscretizedHeight,
+        discretized_velocity:DiscretizedVelocity,
     ) -> (usize, f32) {
-        let row = discretized_height * VELOCITY_BINS + discretized_velocity;
+        let row = discretized_height.0 * VELOCITY_BINS + discretized_velocity.0;
         let action_zero_reward = self.table[row * NUMBER_OF_ACTIONS + 0];
         let action_one_reward = self.table[row * NUMBER_OF_ACTIONS + 1];
         if action_one_reward > action_zero_reward { (1, action_one_reward) } else { (0, action_zero_reward) }
     }
     
-    pub fn get_action_epsilon_greedy(&mut self, discretized_height:usize, discretized_velocity:usize) -> usize {
+    pub fn get_action_epsilon_greedy(
+        &mut self,
+                                     discretized_height:DiscretizedHeight,
+                                     discretized_velocity:DiscretizedVelocity,
+    ) -> usize {
         if self.rng.random::<f32>() < self.epsilon {
             self.rng.random_range(0..=1)
         } else {
@@ -50,14 +56,14 @@ impl QLearning {
 
     pub fn q_update(
         &mut self,
-        discretized_height:usize,
-        new_discretized_height:usize,
-        discretized_velocity:usize,
-        new_discretized_velocity:usize,
+        discretized_height:DiscretizedHeight,
+        new_discretized_height:DiscretizedHeight,
+        discretized_velocity:DiscretizedVelocity,
+        new_discretized_velocity:DiscretizedVelocity,
         action:usize,
         immediate_reward: f32,
     ) {
-        let q_state = discretized_height * VELOCITY_BINS + discretized_velocity;
+        let q_state = discretized_height.0 * VELOCITY_BINS + discretized_velocity.0;
         let q_index = q_state * NUMBER_OF_ACTIONS + action;
         let q_value = self.table[q_index];
 
