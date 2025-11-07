@@ -22,14 +22,14 @@ impl Display for Height {
     }
 }
 
-impl Into<Height> for f32 {
-    fn into(self) -> Height {
-        Height(self)
+impl From<f32> for Height {
+    fn from(value: f32) -> Self {
+        Self(value)
     }
 }
 
 impl Sub<Velocity> for Height {
-    type Output = Height;
+    type Output = Self;
 
     fn sub(self, rhs: Velocity) -> Self::Output {
         (self.0 - rhs.0).into()
@@ -69,7 +69,7 @@ impl Display for Velocity {
 
 impl From<f32> for Velocity {
     fn from(value: f32) -> Self {
-        Velocity(value)
+        Self(value)
     }
 }
 
@@ -80,7 +80,7 @@ impl From<Velocity> for f32 {
 }
 
 impl Add<f32> for Velocity {
-    type Output = Velocity;
+    type Output = Self;
 
     fn add(self, rhs: f32) -> Self::Output {
         (self.0 + rhs).into()
@@ -88,7 +88,7 @@ impl Add<f32> for Velocity {
 }
 
 impl Mul<f32> for Velocity {
-    type Output = Velocity;
+    type Output = Self;
 
     fn mul(self, rhs: f32) -> Self::Output {
         (self.0 * rhs).into()
@@ -96,7 +96,7 @@ impl Mul<f32> for Velocity {
 }
 
 impl Sub<f32> for Velocity {
-    type Output = Velocity;
+    type Output = Self;
 
     fn sub(self, rhs: f32) -> Self::Output {
         (self.0 - rhs).into()

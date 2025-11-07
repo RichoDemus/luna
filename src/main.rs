@@ -12,7 +12,6 @@ pub(crate) const MIN_VELOCITY: f32 = -20.0;
 pub(crate) const MAX_VELOCITY: f32 = 50.0;
 pub(crate) const HEIGHT_BINS: usize = 120;
 pub(crate) const VELOCITY_BINS: usize = 120;
-pub(crate) const Q_ROWS: usize = HEIGHT_BINS * VELOCITY_BINS;
 pub(crate) const NUMBER_OF_ACTIONS: usize = 2;
 pub(crate) const EPISODES: usize = 500_000;
 pub(crate) const MAX_STEPS_PER_EPISODE: usize = 2_000usize;
@@ -134,7 +133,7 @@ fn train(env: &mut LanderEnv, q_learning: &mut QLearning) {
     }
 }
 
-struct EvaluationResults {
+pub struct EvaluationResults {
     successes: usize,
     eval_episodes: usize,
     eval_n: f32,
@@ -142,7 +141,7 @@ struct EvaluationResults {
     avg_touch_v: f32,
 }
 
-fn eval(env: &mut LanderEnv, q_learning: &mut QLearning) -> EvaluationResults {
+fn eval(env: &mut LanderEnv, q_learning: &QLearning) -> EvaluationResults {
     let eval_episodes = 200usize;
     let mut successes = 0usize;
     let mut total_eval_fuel = 0.0_f32;
@@ -190,11 +189,12 @@ fn eval(env: &mut LanderEnv, q_learning: &mut QLearning) -> EvaluationResults {
     }
 }
 
-fn train_and_evaluate(seed: u64) -> (QLearning, EvaluationResults) {
+#[must_use]
+pub fn train_and_evaluate(seed: u64) -> (QLearning, EvaluationResults) {
     let mut env = LanderEnv::new(seed);
     let mut q_learning = QLearning::new(seed);
 
-    println!("Starting training: {} episodes", EPISODES);
+    println!("Starting training: {EPISODES} episodes");
     train(&mut env, &mut q_learning);
     println!("Training finished. Evaluating greedy policy...");
     let results = eval(&mut env, &mut q_learning);
@@ -206,12 +206,7 @@ fn main() {
     let (q_learning, results) = train_and_evaluate(seed);
 
     q_learning.print();
-    print_value_heatmap(
-        &q_learning.table.to_vec(),
-        HEIGHT_BINS,
-        VELOCITY_BINS,
-        NUMBER_OF_ACTIONS,
-    );
+    print_value_heatmap(&q_learning.table, HEIGHT_BINS, VELOCITY_BINS, NUMBER_OF_ACTIONS);
     println!("=== EVALUATION SUMMARY ===");
     println!(
         "Success rate: {}/{} ({:.1}%)",
@@ -221,14 +216,14 @@ fn main() {
     );
     println!("Avg fuel per episode: {:.4}", results.total_eval_fuel / results.eval_n);
     println!("Avg touchdown speed (m/s): {:.4}", results.avg_touch_v / results.eval_n);
-    let (min, max) = q_learning
-        .table
-        .iter()
-        .fold((f32::MAX, f32::MIN), |(min, max), nxt| (min.min(*nxt), max.max(*nxt)));
-    println!("min reward: {min}, max reward: {max}");
 }
 
-fn print_value_heatmap(q_table: &Vec<f32>, h_bins: usize, v_bins: usize, n_actions: usize) {
+fn print_value_heatmap(
+    q_table: &[[[f32; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS],
+    h_bins: usize,
+    v_bins: usize,
+    n_actions: usize,
+) {
     let mut values = vec![0.0_f32; h_bins * v_bins];
     let mut v_min = f32::INFINITY;
     let mut v_max = f32::NEG_INFINITY;
@@ -238,8 +233,7 @@ fn print_value_heatmap(q_table: &Vec<f32>, h_bins: usize, v_bins: usize, n_actio
             let row = h * v_bins + v;
             let mut best = f32::NEG_INFINITY;
             for a in 0..n_actions {
-                let idx = row * n_actions + a;
-                let q = q_table[idx];
+                let q = q_table[h][v][a];
                 if q > best {
                     best = q;
                 }
@@ -268,7 +262,7 @@ fn print_value_heatmap(q_table: &Vec<f32>, h_bins: usize, v_bins: usize, n_actio
 
     println!("\nState-value heatmap (V = max_a Q(s,a))");
     println!("Top row = high height. Left = low velocity, Right = high downward velocity");
-    println!("Value range: min = {:+.3}, max = {:+.3}\n", v_min, v_max);
+    println!("Value range: min = {v_min:+.3}, max = {v_max:+.3}\n");
 
     for h in (0..h_bins).rev() {
         // print highest height first
@@ -284,7 +278,7 @@ fn print_value_heatmap(q_table: &Vec<f32>, h_bins: usize, v_bins: usize, n_actio
             line.push(ch);
         }
         if line.chars().collect::<HashSet<char>>().len() != 1 {
-            println!("{}", line);
+            println!("{line}");
         }
     }
 
@@ -293,7 +287,7 @@ fn print_value_heatmap(q_table: &Vec<f32>, h_bins: usize, v_bins: usize, n_actio
     for (i, c) in ramp.iter().enumerate() {
         let frac = (i as f32) / ((ramp.len() - 1) as f32);
         let val_repr = v_min + frac * range;
-        print!("{}({:+.2}) ", c, val_repr);
+        print!("{c}({val_repr:+.2}) ");
     }
     println!("\n");
 }

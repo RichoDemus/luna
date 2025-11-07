@@ -1,10 +1,10 @@
 use crate::types::{DiscretizedHeight, DiscretizedVelocity};
-use crate::{HEIGHT_BINS, NUMBER_OF_ACTIONS, Q_ROWS, VELOCITY_BINS};
+use crate::{HEIGHT_BINS, NUMBER_OF_ACTIONS, VELOCITY_BINS};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 pub struct QLearning {
-    pub table: [f32; Q_ROWS * NUMBER_OF_ACTIONS],
+    pub table: [[[f32; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS],
     learning_rate_alpha: f32,
     discount_factor_gamma: f32,
     pub epsilon: f32,
@@ -16,13 +16,13 @@ pub struct QLearning {
 impl QLearning {
     pub fn new(seed: u64) -> Self {
         Self {
-            table: [0.0; Q_ROWS * NUMBER_OF_ACTIONS],
+            table: [[[0.0; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS],
             learning_rate_alpha: 0.1,
             discount_factor_gamma: 0.99,
             epsilon: 1.0,
             epsilon_min: 0.05,
             epsilon_decay: 0.9995,
-            rng: StdRng::seed_from_u64(seed ^ 0xDEADBEEF),
+            rng: StdRng::seed_from_u64(seed ^ 0xDEAD_BEEF),
         }
     }
 
@@ -31,9 +31,8 @@ impl QLearning {
         discretized_height: DiscretizedHeight,
         discretized_velocity: DiscretizedVelocity,
     ) -> (usize, f32) {
-        let row = discretized_height.0 * VELOCITY_BINS + discretized_velocity.0;
-        let action_zero_reward = self.table[row * NUMBER_OF_ACTIONS + 0];
-        let action_one_reward = self.table[row * NUMBER_OF_ACTIONS + 1];
+        let action_zero_reward = self.table[discretized_height.0][discretized_velocity.0][0];
+        let action_one_reward = self.table[discretized_height.0][discretized_velocity.0][1];
         if action_one_reward > action_zero_reward {
             (1, action_one_reward)
         } else {
@@ -41,7 +40,6 @@ impl QLearning {
         }
     }
 
-    #[inline(always)]
     pub fn get_action_epsilon_greedy(
         &mut self,
         discretized_height: DiscretizedHeight,
@@ -59,7 +57,6 @@ impl QLearning {
         self.epsilon = (self.epsilon * self.epsilon_decay).clamp(self.epsilon_min, 1.0);
     }
 
-    #[inline(always)]
     pub fn q_update(
         &mut self,
         discretized_height: DiscretizedHeight,
@@ -69,15 +66,14 @@ impl QLearning {
         action: usize,
         immediate_reward: f32,
     ) {
-        let q_state = discretized_height.0 * VELOCITY_BINS + discretized_velocity.0;
-        let q_index = q_state * NUMBER_OF_ACTIONS + action;
-        let q_value = self.table[q_index];
+        let q_value = self.table[discretized_height.0][discretized_velocity.0][action];
 
         let (_, new_q_max_reward) =
             self.get_greedy_action_and_q_value(new_discretized_height, new_discretized_velocity);
 
         let td_target = immediate_reward + self.discount_factor_gamma * new_q_max_reward;
-        self.table[q_index] = q_value + self.learning_rate_alpha * (td_target - q_value);
+        self.table[discretized_height.0][discretized_velocity.0][action] =
+            q_value + self.learning_rate_alpha * (td_target - q_value);
     }
 
     pub fn print(&self) {
@@ -86,9 +82,8 @@ impl QLearning {
             // print top height first
             let mut row_str = String::new();
             for v_idx in 0..VELOCITY_BINS {
-                let row = h_idx * VELOCITY_BINS + v_idx;
-                let q_off = self.table[row * NUMBER_OF_ACTIONS + 0];
-                let q_on = self.table[row * NUMBER_OF_ACTIONS + 1];
+                let q_off = self.table[h_idx][v_idx][0];
+                let q_on = self.table[h_idx][v_idx][1];
                 let symbol = if (q_on - q_off).abs() < 1e-3 {
                     '·' // roughly equal
                 } else if q_on > q_off {
@@ -98,7 +93,7 @@ impl QLearning {
                 };
                 row_str.push(symbol);
             }
-            println!("{}", row_str);
+            println!("{row_str}");
         }
     }
 }
