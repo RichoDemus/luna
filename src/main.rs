@@ -1,3 +1,4 @@
+mod persistence;
 mod q;
 mod types;
 
@@ -91,7 +92,8 @@ impl LanderEnv {
     }
 }
 
-fn train(env: &mut LanderEnv, q_learning: &mut QLearning) {
+fn train(q_learning: &mut QLearning, seed: u64) {
+    let mut env = LanderEnv::new(seed);
     let fuel_cost_per_s = -1.0_f32;
 
     for _ in 1..=EPISODES {
@@ -141,7 +143,8 @@ pub struct EvaluationResults {
     avg_touch_v: f32,
 }
 
-fn eval(env: &mut LanderEnv, q_learning: &QLearning) -> EvaluationResults {
+fn eval(q_learning: &QLearning, seed: u64) -> EvaluationResults {
+    let mut env = LanderEnv::new(seed);
     let eval_episodes = 200usize;
     let mut successes = 0usize;
     let mut total_eval_fuel = 0.0_f32;
@@ -191,19 +194,17 @@ fn eval(env: &mut LanderEnv, q_learning: &QLearning) -> EvaluationResults {
 
 #[must_use]
 pub fn train_and_evaluate(seed: u64) -> (QLearning, EvaluationResults) {
-    let mut env = LanderEnv::new(seed);
-    let mut q_learning = QLearning::new(seed);
+    let mut q_learning = QLearning::new(seed ^ 0xDEAD_BEEF);
 
     println!("Starting training: {EPISODES} episodes");
-    train(&mut env, &mut q_learning);
+    train(&mut q_learning, seed);
     println!("Training finished. Evaluating greedy policy...");
-    let results = eval(&mut env, &mut q_learning);
+    let results = eval(&mut q_learning, seed ^ 0xBEEF);
     (q_learning, results)
 }
 
 fn main() {
-    let seed = 12345_u64;
-    let (q_learning, results) = train_and_evaluate(seed);
+    let (q_learning, results) = train_and_evaluate(12345_u64);
 
     q_learning.print();
     print_value_heatmap(&q_learning.table, HEIGHT_BINS, VELOCITY_BINS, NUMBER_OF_ACTIONS);
@@ -304,8 +305,8 @@ mod tests {
         let epsilon = 1e-6;
         assert_eq!(results.successes, 200);
         let velocities = results.avg_touch_v;
-        assert!((velocities - 79.8145).abs() < epsilon, "{velocities} != 79.8145");
+        assert!((velocities - 80.840805).abs() < epsilon, "{velocities} != 80.840805");
         let fuel = results.total_eval_fuel;
-        assert!((fuel - 980.7349).abs() < epsilon, "{fuel} != 980.7349");
+        assert!((fuel - 982.4689).abs() < epsilon, "{fuel} != 982.4689");
     }
 }

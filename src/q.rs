@@ -22,7 +22,7 @@ impl QLearning {
             epsilon: 1.0,
             epsilon_min: 0.05,
             epsilon_decay: 0.9995,
-            rng: StdRng::seed_from_u64(seed ^ 0xDEAD_BEEF),
+            rng: StdRng::seed_from_u64(seed),
         }
     }
 
