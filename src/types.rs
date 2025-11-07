@@ -1,11 +1,11 @@
+use crate::{HEIGHT_BINS, MAX_HEIGHT, MAX_VELOCITY, MIN_HEIGHT, MIN_VELOCITY, VELOCITY_BINS};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Mul, Sub};
-use crate::{HEIGHT_BINS, MAX_HEIGHT, MAX_VELOCITY, MIN_HEIGHT, MIN_VELOCITY, VELOCITY_BINS};
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct Height (pub f32);
+pub struct Height(pub f32);
 
 impl Height {
     pub fn discretize(self) -> DiscretizedHeight {
@@ -50,7 +50,7 @@ impl PartialOrd<f32> for Height {
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct Velocity (pub f32);
+pub struct Velocity(pub f32);
 
 impl Velocity {
     pub fn discretize(self) -> DiscretizedVelocity {
@@ -117,7 +117,7 @@ impl PartialOrd<f32> for Velocity {
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct DiscretizedHeight (pub usize);
+pub struct DiscretizedHeight(pub usize);
 #[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct DiscretizedVelocity (pub usize);
+pub struct DiscretizedVelocity(pub usize);

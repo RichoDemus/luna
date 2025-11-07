@@ -1,9 +1,9 @@
 mod q;
 mod types;
 
-use rand::prelude::*;
 use crate::q::QLearning;
 use crate::types::{DiscretizedHeight, DiscretizedVelocity, Height, Velocity};
+use rand::prelude::*;
 
 const MIN_HEIGHT: f32 = 0.0;
 const MAX_HEIGHT: f32 = 150.0;
@@ -12,9 +12,8 @@ const MAX_VELOCITY: f32 = 50.0;
 pub const HEIGHT_BINS: usize = 120;
 pub const VELOCITY_BINS: usize = 120;
 pub const Q_ROWS: usize = HEIGHT_BINS * VELOCITY_BINS;
-pub const NUMBER_OF_ACTIONS: usize  = 2;
-pub const EPISODES:usize = 500_000;
-
+pub const NUMBER_OF_ACTIONS: usize = 2;
+pub const EPISODES: usize = 500_000;
 
 /// Single-step environment state
 #[derive(Copy, Clone)]
@@ -67,7 +66,10 @@ impl LanderEnv {
     /// - For touchdown when new_h <= 0 we estimate the exact touchdown time (t_hit)
     ///   inside the dt to compute a more accurate touchdown velocity.
     fn step(&mut self, action: usize) -> (State, f32, bool, f32) {
-        let State { height: prev_height, velocity: prev_velocity} = self.state;
+        let State {
+            height: prev_height,
+            velocity: prev_velocity,
+        } = self.state;
         let thrusters_on = action == 1;
 
         let accel = if thrusters_on { self.g - self.thrust_acc } else { self.g };
@@ -79,7 +81,10 @@ impl LanderEnv {
         let fuel_used = if thrusters_on { self.dt } else { 0. };
 
         if new_height <= 0.0 {
-            assert!(new_velocity >= 0., "Managed to land while moving upwards?, height: {prev_height} new_height:  {new_height} vel: {prev_velocity}, new_vl: {new_velocity}, thrusters on: {thrusters_on}, accel: {accel}");
+            assert!(
+                new_velocity >= 0.,
+                "Managed to land while moving upwards?, height: {prev_height} new_height:  {new_height} vel: {prev_velocity}, new_vl: {new_velocity}, thrusters on: {thrusters_on}, accel: {accel}"
+            );
 
             self.state = State {
                 height: 0.0.into(),
@@ -107,7 +112,6 @@ fn main() {
     let seed = 12345_u64;
     let mut env = LanderEnv::new(seed);
     let mut q_learning = QLearning::new(seed);
-
 
     let max_steps_per_episode = 2_000usize;
 
