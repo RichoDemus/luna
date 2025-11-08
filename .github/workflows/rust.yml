@@ -84,7 +84,7 @@ jobs:
         run: cp index.html target/luna-web/
 
       - name: Copy assets
-        run: ccp -r assets target/luna-web/
+        run: cp -r assets target/luna-web/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
