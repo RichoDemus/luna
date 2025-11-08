@@ -17,7 +17,7 @@ pub(crate) fn save(table: &QTable) {
 
 pub(crate) fn load() -> Option<QTable> {
     let bytes = include_bytes!("../q_table.json").to_vec();
-    // let bytes = std::fs::read(PATH).ok()?;
+    // let bytes = std::fs::read("assets/q_table.json").ok()?;
     let result: Vec<Vec<Vec<f32>>> = serde_json::from_slice(bytes.as_slice()).ok()?;
 
     let table: QTable = std::array::from_fn(|height| {

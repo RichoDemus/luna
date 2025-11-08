@@ -26,7 +26,7 @@ pub(crate) const WINDOW_WIDTH: u32 = 1280;
 pub(crate) const WINDOW_HEIGHT: u32 = 720;
 
 fn main() {
-    core::run();
+    // core::run();
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
