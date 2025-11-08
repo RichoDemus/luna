@@ -19,7 +19,16 @@ pub(crate) fn load() -> Option<QTable> {
 
     let table: QTable = std::array::from_fn(|height| {
         std::array::from_fn(|velocity| {
-            std::array::from_fn(|action| result.get(height).unwrap().get(velocity).unwrap().get(action).unwrap())
+            std::array::from_fn(|action| {
+                result
+                    .get(height)
+                    .unwrap()
+                    .get(velocity)
+                    .unwrap()
+                    .get(action)
+                    .unwrap()
+                    .clone()
+            })
         })
     });
 
