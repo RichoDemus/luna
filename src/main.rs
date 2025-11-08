@@ -45,10 +45,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
         StateText,
@@ -130,7 +127,7 @@ static Q_LEARNING: Lazy<Mutex<QLearning>> = Lazy::new(|| {
 });
 
 fn just_do_everything(
-    mut landers: Query<(&mut Transform,&mut LanderState), With<Lander>>,
+    mut landers: Query<(&mut Transform, &mut LanderState), With<Lander>>,
     mut texts: Query<&mut Text, With<StateText>>,
 ) {
     for (mut transform, mut state) in landers.iter_mut() {

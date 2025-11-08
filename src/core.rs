@@ -1,14 +1,14 @@
-use rand::prelude::*;
-use std::collections::HashSet;
-use crate::{persistence, EPISODES, HEIGHT_BINS, MAX_STEPS_PER_EPISODE, NUMBER_OF_ACTIONS, VELOCITY_BINS};
 use crate::q::QLearning;
 use crate::types::{Height, Velocity};
+use crate::{EPISODES, HEIGHT_BINS, MAX_STEPS_PER_EPISODE, NUMBER_OF_ACTIONS, VELOCITY_BINS, persistence};
+use rand::prelude::*;
+use std::collections::HashSet;
 
 /// Single-step environment state
 #[derive(Copy, Clone)]
 pub(crate) struct State {
-    pub(crate)height: Height,
-    pub(crate)velocity: Velocity,
+    pub(crate) height: Height,
+    pub(crate) velocity: Velocity,
 }
 
 /// Simple 1D lunar lander environment

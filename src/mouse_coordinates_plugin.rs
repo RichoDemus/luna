@@ -15,7 +15,7 @@ struct MouseCoordinates;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-                       MouseCoordinates,
+        MouseCoordinates,
         Text::new("eyy"),
         TextFont {
             font: asset_server.load("fonts/orbiton/Orbitron-VariableFont_wght.ttf"),
@@ -42,21 +42,20 @@ fn text_follows_mouse(
     for ev in evr_cursor.read() {
         for (mut node, mut span) in texts.iter_mut() {
             node.top = px(ev.position.y + 5.);
-            node.left = px(ev.position.x+ 5. );
+            node.left = px(ev.position.x + 5.);
 
             let (camera, camera_transform) = q_camera.single().unwrap();
 
             let window = q_window.single().unwrap();
 
-            if let Some(world_position) = window.cursor_position()
+            if let Some(world_position) = window
+                .cursor_position()
                 .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
                 .map(|ray| ray.origin.truncate())
             {
                 eprintln!("World coords: {}/{}", world_position.x, world_position.y);
                 **span = format!("{:.0}, {:.0}", world_position.x, world_position.y);
             }
-
-
         }
     }
 }
