@@ -204,7 +204,19 @@ pub fn train_and_evaluate(seed: u64) -> (QLearning, EvaluationResults) {
 }
 
 fn main() {
-    let (q_learning, results) = train_and_evaluate(12345_u64);
+    let q_learning = match persistence::load() {
+        None => {
+            let mut q_learning = QLearning::new(12345_u64 ^ 0xDEAD_BEEF);
+            train(&mut q_learning, 12345_u64);
+            q_learning
+        }
+        Some(q_table) => {
+            let mut q_learning = QLearning::new(12345_u64 ^ 0xDEAD_BEEF);
+            q_learning.table = q_table;
+            q_learning
+        }
+    };
+    let results = eval(&q_learning, 12345_u64 ^ 0xBEEF);
 
     q_learning.print();
     print_value_heatmap(&q_learning.table, HEIGHT_BINS, VELOCITY_BINS, NUMBER_OF_ACTIONS);
@@ -217,6 +229,7 @@ fn main() {
     );
     println!("Avg fuel per episode: {:.4}", results.total_eval_fuel / results.eval_n);
     println!("Avg touchdown speed (m/s): {:.4}", results.avg_touch_v / results.eval_n);
+    persistence::save(&q_learning.table)
 }
 
 fn print_value_heatmap(

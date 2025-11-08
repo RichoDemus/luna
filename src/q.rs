@@ -3,8 +3,10 @@ use crate::{HEIGHT_BINS, NUMBER_OF_ACTIONS, VELOCITY_BINS};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
+pub(crate) type QTable = [[[f32; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS];
+
 pub struct QLearning {
-    pub table: [[[f32; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS],
+    pub table: QTable,
     learning_rate_alpha: f32,
     discount_factor_gamma: f32,
     pub epsilon: f32,
