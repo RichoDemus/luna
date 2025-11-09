@@ -172,7 +172,7 @@ fn just_do_everything(
             }
             continue;
         }
-        transform.translation.y = s_next.height.0;
+        transform.translation.y = s_next.height.0 * 5.;
         info!("height: {}, velocity: {}", s_next.height.0, s_next.velocity.0);
         for mut text in texts.iter_mut() {
             **text = format!(
