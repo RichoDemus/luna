@@ -21,7 +21,11 @@
     <title>Luna</title>
 </head>
 <script type="module">
-    import init from './luna.js'
-    init()
+    // workaround for https://github.com/bevyengine/bevy/issues/21497
+    if (!document.exitPointerLock) {
+        document.exitPointerLock = () => {};
+    }
+import init from './luna.js'
+init()
 </script>
 </html>
