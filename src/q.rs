@@ -10,7 +10,6 @@ pub(crate) type QTable = [[[f32; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS
 pub(crate) const HEIGHT_BINS: usize = 120;
 pub(crate) const VELOCITY_BINS: usize = 120;
 pub(crate) const NUMBER_OF_ACTIONS: usize = 2;
-pub(crate) const MAX_STEPS_PER_EPISODE: usize = 2_000usize;
 pub(crate) const OPTIMAL_FUEL_USAGE: f32 = util::optimal_fuel_usage(
     MAX_HEIGHT,
     GRAVITATIONAL_CONSTANT,

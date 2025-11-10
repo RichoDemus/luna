@@ -116,7 +116,7 @@ static LANDER: Lazy<Mutex<LanderEnv>> = Lazy::new(|| {
 });
 
 static Q_LEARNING: Lazy<Mutex<QLearning>> = Lazy::new(|| {
-    let mut q_learning = QLearning::new((QLearningParameters::default()));
+    let mut q_learning = QLearning::new(QLearningParameters::default());
     q_learning.table = persistence::load().unwrap();
     Mutex::new(q_learning)
 });

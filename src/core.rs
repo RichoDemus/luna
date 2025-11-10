@@ -189,12 +189,12 @@ pub fn train_and_evaluate(seed: u64) -> (QLearning, EvaluationResults) {
 pub(crate) fn run() {
     let q_learning = match persistence::load() {
         None => {
-            let mut q_learning = QLearning::new((QLearningParameters::default()));
+            let mut q_learning = QLearning::new(QLearningParameters::default());
             train(&mut q_learning, 12345_u64);
             q_learning
         }
         Some(q_table) => {
-            let mut q_learning = QLearning::new((QLearningParameters::default()));
+            let mut q_learning = QLearning::new(QLearningParameters::default());
             q_learning.table = q_table;
             q_learning
         }
