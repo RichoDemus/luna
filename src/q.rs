@@ -8,7 +8,6 @@ pub(crate) type QTable = [[[f32; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS
 pub(crate) const HEIGHT_BINS: usize = 120;
 pub(crate) const VELOCITY_BINS: usize = 120;
 pub(crate) const NUMBER_OF_ACTIONS: usize = 2;
-pub(crate) const EPISODES: usize = 250_000;
 pub(crate) const MAX_STEPS_PER_EPISODE: usize = 2_000usize;
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
@@ -39,7 +38,7 @@ impl Default for QLearningParameters {
             max_velocity: 50.0,
             velocity_bins: VELOCITY_BINS,
             number_of_actions: NUMBER_OF_ACTIONS,
-            target_episodes: EPISODES,
+            target_episodes: 250_000,
             learning_rate_alpha: 0.1,
             discount_factor_gamma: 0.99,
             starting_epsilon: 1.0,
@@ -54,7 +53,7 @@ pub struct QLearning {
     pub table: QTable,
     pub epsilon: f32,
     rng: StdRng,
-    parameters: QLearningParameters,
+    pub parameters: QLearningParameters,
 }
 
 impl QLearning {

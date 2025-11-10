@@ -1,7 +1,5 @@
 use crate::persistence;
-use crate::q::{
-    EPISODES, HEIGHT_BINS, MAX_STEPS_PER_EPISODE, NUMBER_OF_ACTIONS, QLearning, QLearningParameters, VELOCITY_BINS,
-};
+use crate::q::{HEIGHT_BINS, MAX_STEPS_PER_EPISODE, NUMBER_OF_ACTIONS, QLearning, QLearningParameters, VELOCITY_BINS};
 use crate::types::{Height, Velocity};
 use rand::prelude::*;
 use std::collections::HashSet;
@@ -85,7 +83,7 @@ fn train(q_learning: &mut QLearning, seed: u64) {
     let mut env = LanderEnv::new(seed);
     let fuel_cost_per_s = -1.0_f32;
 
-    for _ in 1..=EPISODES {
+    for _ in 1..=q_learning.parameters.target_episodes {
         let s0 = env.reset();
         let mut state = s0;
         let mut _total_reward = 0.0_f32;
@@ -175,7 +173,7 @@ fn eval(q_learning: &QLearning, seed: u64) -> EvaluationResults {
 pub fn train_and_evaluate(seed: u64) -> (QLearning, EvaluationResults) {
     let mut q_learning = QLearning::new(QLearningParameters::default());
 
-    println!("Starting training: {EPISODES} episodes");
+    println!("Starting training: {} episodes", q_learning.parameters.target_episodes);
     train(&mut q_learning, seed);
     println!("Training finished. Evaluating greedy policy...");
     let results = eval(&q_learning, seed ^ 0xBEEF);
