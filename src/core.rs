@@ -97,14 +97,14 @@ fn train(q_learning: &mut QLearning, seed: u64) {
             let action = q_learning.get_action_epsilon_greedy(discretized_height, discretized_velocity);
 
             let (new_state, terminal_reward, done, fuel_used) = env.step(action);
-            state = new_state;
+
             let immediate_reward = fuel_cost_per_s * fuel_used + terminal_reward;
 
             _total_reward += immediate_reward;
             _total_fuel += fuel_used;
 
-            let new_discretized_height = state.height.discretize();
-            let new_discretized_velocity = state.velocity.discretize();
+            let new_discretized_height = new_state.height.discretize();
+            let new_discretized_velocity = new_state.velocity.discretize();
 
             q_learning.q_update(
                 discretized_height,
@@ -118,6 +118,7 @@ fn train(q_learning: &mut QLearning, seed: u64) {
             if done {
                 break;
             }
+            state = new_state;
         }
 
         q_learning.decay_epsilon();
@@ -140,14 +141,13 @@ fn eval(q_learning: &QLearning, seed: u64) -> EvaluationResults {
     let mut avg_touch_v = 0.0_f32;
 
     for _ in 0..eval_episodes {
-        let s = env.reset();
-        let mut discretized_height = s.height.discretize();
-        let mut discretized_velocity = s.velocity.discretize();
+        let mut state = env.reset();
         let mut fuel_used = 0.0_f32;
         let mut touchdown_v: Option<f32> = None;
 
         for _step in 0..MAX_STEPS_PER_EPISODE {
-            let (action, _) = q_learning.get_greedy_action_and_q_value(discretized_height, discretized_velocity);
+            let (action, _) =
+                q_learning.get_greedy_action_and_q_value(state.height.discretize(), state.velocity.discretize());
 
             let (s_next, terminal_reward, done, fuel) = env.step(action);
             fuel_used += fuel;
@@ -160,11 +160,7 @@ fn eval(q_learning: &QLearning, seed: u64) -> EvaluationResults {
                 break;
             }
 
-            let h2 = s_next.height.discretize();
-            let v2 = s_next.velocity.discretize();
-
-            discretized_height = h2;
-            discretized_velocity = v2;
+            state = s_next;
         }
 
         total_eval_fuel += fuel_used;
