@@ -7,15 +7,6 @@ use std::ops::{Add, Mul, Sub};
 #[repr(transparent)]
 pub struct Height(pub f32);
 
-impl Height {
-    pub fn discretize(self) -> DiscretizedHeight {
-        let h = self.0.clamp(MIN_HEIGHT, MAX_HEIGHT);
-        let h_frac = (h - MIN_HEIGHT) / (MAX_HEIGHT - MIN_HEIGHT + 1e-8);
-        let h_idx = (h_frac * (HEIGHT_BINS as f32)) as usize;
-        DiscretizedHeight(h_idx.min(HEIGHT_BINS - 1))
-    }
-}
-
 impl Display for Height {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:.1}", self.0)
@@ -51,15 +42,6 @@ impl PartialOrd<f32> for Height {
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Velocity(pub f32);
-
-impl Velocity {
-    pub fn discretize(self) -> DiscretizedVelocity {
-        let h = self.0.clamp(MIN_VELOCITY, MAX_VELOCITY);
-        let v_frac = (h - MIN_VELOCITY) / (MAX_VELOCITY - MIN_VELOCITY + 1e-8);
-        let h_idx = (v_frac * (VELOCITY_BINS as f32)) as usize;
-        DiscretizedVelocity(h_idx.min(VELOCITY_BINS - 1))
-    }
-}
 
 impl Display for Velocity {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

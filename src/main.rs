@@ -131,8 +131,6 @@ fn just_do_everything(
         let mut env = LANDER.lock().unwrap();
         let q_learning = Q_LEARNING.lock().unwrap();
 
-        let discretized_height = env.state.height.discretize();
-        let discretized_velocity = env.state.velocity.discretize();
         let (action, _) = q_learning.get_greedy_action_and_q_value(env.state.height, env.state.velocity);
 
         let (s_next, terminal_reward, done, _fuel) = env.step(action);

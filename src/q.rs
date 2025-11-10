@@ -72,8 +72,8 @@ impl QLearning {
     }
 
     pub fn get_greedy_action_and_q_value(&self, height: Height, velocity: Velocity) -> (usize, f32) {
-        let discretized_height = height.discretize();
-        let discretized_velocity = velocity.discretize();
+        let discretized_height = self.discretize_height(height);
+        let discretized_velocity = self.discretize_velocity(velocity);
         let action_zero_reward = self.table[discretized_height.0][discretized_velocity.0][0];
         let action_one_reward = self.table[discretized_height.0][discretized_velocity.0][1];
         if action_one_reward > action_zero_reward {
@@ -105,8 +105,8 @@ impl QLearning {
         action: usize,
         immediate_reward: f32,
     ) {
-        let discretized_height = height.discretize();
-        let discretized_velocity = velocity.discretize();
+        let discretized_height = self.discretize_height(height);
+        let discretized_velocity = self.discretize_velocity(velocity);
         let q_value = self.table[discretized_height.0][discretized_velocity.0][action];
 
         let (_, new_q_max_reward) = self.get_greedy_action_and_q_value(new_height, new_velocity);
@@ -114,6 +114,24 @@ impl QLearning {
         let td_target = immediate_reward + self.parameters.discount_factor_gamma * new_q_max_reward;
         self.table[discretized_height.0][discretized_velocity.0][action] =
             q_value + self.parameters.learning_rate_alpha * (td_target - q_value);
+    }
+
+    pub fn discretize_height(&self, height: Height) -> DiscretizedHeight {
+        let h = height.0.clamp(self.parameters.min_height, self.parameters.max_height);
+        let h_frac =
+            (h - self.parameters.min_height) / (self.parameters.max_height - self.parameters.min_height + 1e-8);
+        let h_idx = (h_frac * (self.parameters.height_bins as f32)) as usize;
+        DiscretizedHeight(h_idx.min(self.parameters.height_bins - 1))
+    }
+
+    pub fn discretize_velocity(&self, velocity: Velocity) -> DiscretizedVelocity {
+        let h = velocity
+            .0
+            .clamp(self.parameters.min_velocity, self.parameters.max_velocity);
+        let v_frac =
+            (h - self.parameters.min_velocity) / (self.parameters.max_velocity - self.parameters.min_velocity + 1e-8);
+        let h_idx = (v_frac * (self.parameters.velocity_bins as f32)) as usize;
+        DiscretizedVelocity(h_idx.min(self.parameters.velocity_bins - 1))
     }
 
     pub fn print(&self) {

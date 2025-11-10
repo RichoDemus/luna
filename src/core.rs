@@ -92,8 +92,6 @@ fn train(q_learning: &mut QLearning, seed: u64) {
         let mut _total_fuel = 0.0_f32;
 
         for _step in 0..MAX_STEPS_PER_EPISODE {
-            let discretized_height = state.height.discretize();
-            let discretized_velocity = state.velocity.discretize();
             let action = q_learning.get_action_epsilon_greedy(state.height, state.velocity);
 
             let (new_state, terminal_reward, done, fuel_used) = env.step(action);
@@ -102,9 +100,6 @@ fn train(q_learning: &mut QLearning, seed: u64) {
 
             _total_reward += immediate_reward;
             _total_fuel += fuel_used;
-
-            let new_discretized_height = new_state.height.discretize();
-            let new_discretized_velocity = new_state.velocity.discretize();
 
             q_learning.q_update(
                 state.height,
