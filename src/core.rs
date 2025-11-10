@@ -1,8 +1,15 @@
 use crate::persistence;
-use crate::q::{HEIGHT_BINS, MAX_STEPS_PER_EPISODE, NUMBER_OF_ACTIONS, QLearning, QLearningParameters, VELOCITY_BINS};
+use crate::q::{
+    HEIGHT_BINS, MAX_HEIGHT, NUMBER_OF_ACTIONS, OPTIMAL_FUEL_USAGE, QLearning, QLearningParameters, VELOCITY_BINS,
+};
 use crate::types::{Height, Velocity};
 use rand::prelude::*;
 use std::collections::HashSet;
+
+pub(crate) const GRAVITATIONAL_CONSTANT: f32 = 1.62;
+pub(crate) const THRUST_ACCELERATION: f32 = 5.0;
+pub(crate) const SAFE_LANDING_VELOCITY: f32 = 1.0;
+pub(crate) const TIMESTEP_DT: f32 = 1. / 60.;
 
 /// Single-step environment state
 #[derive(Copy, Clone)]
@@ -24,11 +31,11 @@ impl LanderEnv {
     /// Create a new environment with a given RNG seed.
     pub(crate) fn new(seed: u64) -> Self {
         Self {
-            g: 1.62,         // moon gravity ~1.62 m/s^2
-            thrust_acc: 5.0, // thrust acceleration (should exceed gravity to be effective)
-            dt: 1. / 60.,    // timestep
+            g: GRAVITATIONAL_CONSTANT,       // moon gravity ~1.62 m/s^2
+            thrust_acc: THRUST_ACCELERATION, // thrust acceleration (should exceed gravity to be effective)
+            dt: TIMESTEP_DT,                 // timestep
             state: State {
-                height: 100.0.into(),
+                height: MAX_HEIGHT.into(),
                 velocity: 0.0.into(),
             },
             rng: StdRng::seed_from_u64(seed),
@@ -67,8 +74,7 @@ impl LanderEnv {
                 velocity: new_velocity,
             };
             // success if absolute touchdown speed is less than threshold
-            let safe_v = 1.0_f32;
-            let success = new_velocity.0.abs() < safe_v;
+            let success = new_velocity.0.abs() < SAFE_LANDING_VELOCITY;
             let reward = if success { 1000.0 } else { -1000.0 };
             return (self.state, reward, true, fuel_used);
         }
@@ -87,9 +93,9 @@ fn train(q_learning: &mut QLearning, seed: u64) {
         let s0 = env.reset();
         let mut state = s0;
         let mut _total_reward = 0.0_f32;
-        let mut _total_fuel = 0.0_f32;
+        let mut total_fuel = 0.0_f32;
 
-        for _step in 0..MAX_STEPS_PER_EPISODE {
+        while total_fuel < OPTIMAL_FUEL_USAGE * 10. {
             let action = q_learning.get_action_epsilon_greedy(state.height, state.velocity);
 
             let (new_state, terminal_reward, done, fuel_used) = env.step(action);
@@ -97,7 +103,7 @@ fn train(q_learning: &mut QLearning, seed: u64) {
             let immediate_reward = fuel_cost_per_s * fuel_used + terminal_reward;
 
             _total_reward += immediate_reward;
-            _total_fuel += fuel_used;
+            total_fuel += fuel_used;
 
             q_learning.q_update(
                 state.height,
@@ -138,7 +144,7 @@ fn eval(q_learning: &QLearning, seed: u64) -> EvaluationResults {
         let mut fuel_used = 0.0_f32;
         let mut touchdown_v: Option<f32> = None;
 
-        for _step in 0..MAX_STEPS_PER_EPISODE {
+        while fuel_used < OPTIMAL_FUEL_USAGE * 10. {
             let (action, _) = q_learning.get_greedy_action_and_q_value(state.height, state.velocity);
 
             let (s_next, terminal_reward, done, fuel) = env.step(action);
@@ -301,8 +307,13 @@ mod tests {
         let epsilon = 1e-6;
         assert_eq!(results.successes, 200);
         let velocities = results.avg_touch_v;
-        assert!((velocities - 80.98163).abs() < epsilon, "{velocities} != 80.98163");
+        let expected_velocities = 81.11385;
+        assert!(
+            (velocities - expected_velocities).abs() < epsilon,
+            "{velocities} != {expected_velocities}"
+        );
         let fuel = results.total_eval_fuel;
-        assert!((fuel - 1245.6881).abs() < epsilon, "{fuel} != 1245.6881");
+        let expected_fuel = 994.76917;
+        assert!((fuel - expected_fuel).abs() < epsilon, "{fuel} != {expected_fuel}");
     }
 }

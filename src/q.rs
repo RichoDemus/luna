@@ -1,4 +1,6 @@
+use crate::core::{GRAVITATIONAL_CONSTANT, SAFE_LANDING_VELOCITY, THRUST_ACCELERATION, TIMESTEP_DT};
 use crate::types::{DiscretizedHeight, DiscretizedVelocity, Height, Velocity};
+use crate::util;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
@@ -9,6 +11,15 @@ pub(crate) const HEIGHT_BINS: usize = 120;
 pub(crate) const VELOCITY_BINS: usize = 120;
 pub(crate) const NUMBER_OF_ACTIONS: usize = 2;
 pub(crate) const MAX_STEPS_PER_EPISODE: usize = 2_000usize;
+pub(crate) const OPTIMAL_FUEL_USAGE: f32 = util::optimal_fuel_usage(
+    MAX_HEIGHT,
+    GRAVITATIONAL_CONSTANT,
+    THRUST_ACCELERATION,
+    SAFE_LANDING_VELOCITY,
+    TIMESTEP_DT,
+);
+
+pub(crate) const MAX_HEIGHT: f32 = 150.0;
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct QLearningParameters {
@@ -32,7 +43,7 @@ impl Default for QLearningParameters {
     fn default() -> Self {
         Self {
             min_height: 0.0,
-            max_height: 150.0,
+            max_height: MAX_HEIGHT,
             height_bins: HEIGHT_BINS,
             min_velocity: -20.0,
             max_velocity: 50.0,

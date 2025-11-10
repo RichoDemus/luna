@@ -2,6 +2,7 @@ mod core;
 mod persistence;
 mod q;
 mod types;
+mod util;
 
 use crate::core::LanderEnv;
 use crate::q::{QLearning, QLearningParameters};
