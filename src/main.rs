@@ -133,7 +133,7 @@ fn just_do_everything(
 
         let discretized_height = env.state.height.discretize();
         let discretized_velocity = env.state.velocity.discretize();
-        let (action, _) = q_learning.get_greedy_action_and_q_value(discretized_height, discretized_velocity);
+        let (action, _) = q_learning.get_greedy_action_and_q_value(env.state.height, env.state.velocity);
 
         let (s_next, terminal_reward, done, _fuel) = env.step(action);
         if done {

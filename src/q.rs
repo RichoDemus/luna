@@ -1,4 +1,4 @@
-use crate::types::{DiscretizedHeight, DiscretizedVelocity};
+use crate::types::{DiscretizedHeight, DiscretizedVelocity, Height, Velocity};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
@@ -71,11 +71,9 @@ impl QLearning {
         }
     }
 
-    pub fn get_greedy_action_and_q_value(
-        &self,
-        discretized_height: DiscretizedHeight,
-        discretized_velocity: DiscretizedVelocity,
-    ) -> (usize, f32) {
+    pub fn get_greedy_action_and_q_value(&self, height: Height, velocity: Velocity) -> (usize, f32) {
+        let discretized_height = height.discretize();
+        let discretized_velocity = velocity.discretize();
         let action_zero_reward = self.table[discretized_height.0][discretized_velocity.0][0];
         let action_one_reward = self.table[discretized_height.0][discretized_velocity.0][1];
         if action_one_reward > action_zero_reward {
@@ -85,15 +83,11 @@ impl QLearning {
         }
     }
 
-    pub fn get_action_epsilon_greedy(
-        &mut self,
-        discretized_height: DiscretizedHeight,
-        discretized_velocity: DiscretizedVelocity,
-    ) -> usize {
+    pub fn get_action_epsilon_greedy(&mut self, height: Height, velocity: Velocity) -> usize {
         if self.rng.random::<f32>() < self.epsilon {
             self.rng.random_range(0..=1)
         } else {
-            let (greedy_action, _) = self.get_greedy_action_and_q_value(discretized_height, discretized_velocity);
+            let (greedy_action, _) = self.get_greedy_action_and_q_value(height, velocity);
             greedy_action
         }
     }
@@ -104,17 +98,18 @@ impl QLearning {
 
     pub fn q_update(
         &mut self,
-        discretized_height: DiscretizedHeight,
-        new_discretized_height: DiscretizedHeight,
-        discretized_velocity: DiscretizedVelocity,
-        new_discretized_velocity: DiscretizedVelocity,
+        height: Height,
+        new_height: Height,
+        velocity: Velocity,
+        new_velocity: Velocity,
         action: usize,
         immediate_reward: f32,
     ) {
+        let discretized_height = height.discretize();
+        let discretized_velocity = velocity.discretize();
         let q_value = self.table[discretized_height.0][discretized_velocity.0][action];
 
-        let (_, new_q_max_reward) =
-            self.get_greedy_action_and_q_value(new_discretized_height, new_discretized_velocity);
+        let (_, new_q_max_reward) = self.get_greedy_action_and_q_value(new_height, new_velocity);
 
         let td_target = immediate_reward + self.parameters.discount_factor_gamma * new_q_max_reward;
         self.table[discretized_height.0][discretized_velocity.0][action] =
