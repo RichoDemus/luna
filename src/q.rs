@@ -5,10 +5,6 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) type QTable = [[[f32; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS];
 
-pub(crate) const MIN_HEIGHT: f32 = 0.0;
-pub(crate) const MAX_HEIGHT: f32 = 150.0;
-pub(crate) const MIN_VELOCITY: f32 = -20.0;
-pub(crate) const MAX_VELOCITY: f32 = 50.0;
 pub(crate) const HEIGHT_BINS: usize = 120;
 pub(crate) const VELOCITY_BINS: usize = 120;
 pub(crate) const NUMBER_OF_ACTIONS: usize = 2;
@@ -36,11 +32,11 @@ pub struct QLearningParameters {
 impl Default for QLearningParameters {
     fn default() -> Self {
         Self {
-            min_height: MIN_HEIGHT,
-            max_height: MAX_HEIGHT,
+            min_height: 0.0,
+            max_height: 150.0,
             height_bins: HEIGHT_BINS,
-            min_velocity: MIN_VELOCITY,
-            max_velocity: MAX_VELOCITY,
+            min_velocity: -20.0,
+            max_velocity: 50.0,
             velocity_bins: VELOCITY_BINS,
             number_of_actions: NUMBER_OF_ACTIONS,
             target_episodes: EPISODES,
