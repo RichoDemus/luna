@@ -1,10 +1,9 @@
 use crate::q::QTable;
-use crate::{NUMBER_OF_ACTIONS, VELOCITY_BINS};
 
 #[cfg(not(test))]
-const PATH: &'static str = "q_table.json";
+const PATH: &str = "q_table.json";
 #[cfg(test)]
-const PATH: &'static str = "target/q_table.json";
+const PATH: &str = "target/q_table.json";
 
 pub(crate) fn save(table: &QTable) {
     let vector: Vec<Vec<Vec<f32>>> = table.iter().map(|a| a.iter().map(|b| b.to_vec()).collect()).collect();
@@ -18,18 +17,7 @@ pub(crate) fn load() -> Option<QTable> {
     let result: Vec<Vec<Vec<f32>>> = serde_json::from_slice(bytes.as_slice()).ok()?;
 
     let table: QTable = std::array::from_fn(|height| {
-        std::array::from_fn(|velocity| {
-            std::array::from_fn(|action| {
-                result
-                    .get(height)
-                    .unwrap()
-                    .get(velocity)
-                    .unwrap()
-                    .get(action)
-                    .unwrap()
-                    .clone()
-            })
-        })
+        std::array::from_fn(|velocity| std::array::from_fn(|action| result[height][velocity][action]))
     });
 
     Some(table)
@@ -39,6 +27,7 @@ pub(crate) fn load() -> Option<QTable> {
 mod tests {
     use super::*;
     use crate::q::QTable;
+    use crate::{NUMBER_OF_ACTIONS, VELOCITY_BINS};
 
     #[test]
     fn test_save_and_load() {

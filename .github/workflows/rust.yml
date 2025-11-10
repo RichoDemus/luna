@@ -38,35 +38,11 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
-#      - name: cargo clippy
-#        run: cargo clippy -- -D warnings
+      - name: cargo clippy
+        run: cargo clippy -- -D warnings
 
       - name: cargo test
         run: cargo test --all-features
-
-  build_for_deploy:
-    name: build for deploy
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout
-        uses: actions/checkout@v4
-
-      - name: cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Install Bevy dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libwayland-dev libxkbcommon-dev
 
       - name: Install wasm-bindgen-cli
         run: cargo install wasm-bindgen-cli
@@ -92,7 +68,7 @@ jobs:
           path: 'target/luna-web'
 
   deploy:
-    needs: build_for_deploy
+    needs: build-and-test
     permissions:
       pages: write
       id-token: write

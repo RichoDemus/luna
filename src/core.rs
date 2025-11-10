@@ -179,14 +179,14 @@ fn eval(q_learning: &QLearning, seed: u64) -> EvaluationResults {
     }
 }
 
-#[must_use]
+#[allow(unused)]
 pub fn train_and_evaluate(seed: u64) -> (QLearning, EvaluationResults) {
     let mut q_learning = QLearning::new(seed ^ 0xDEAD_BEEF);
 
     println!("Starting training: {EPISODES} episodes");
     train(&mut q_learning, seed);
     println!("Training finished. Evaluating greedy policy...");
-    let results = eval(&mut q_learning, seed ^ 0xBEEF);
+    let results = eval(&q_learning, seed ^ 0xBEEF);
     (q_learning, results)
 }
 
@@ -229,10 +229,13 @@ fn print_value_heatmap(
     let mut v_min = f32::INFINITY;
     let mut v_max = f32::NEG_INFINITY;
 
+    #[allow(clippy::needless_range_loop)]
     for h in 0..h_bins {
+        #[allow(clippy::needless_range_loop)]
         for v in 0..v_bins {
             let row = h * v_bins + v;
             let mut best = f32::NEG_INFINITY;
+            #[allow(clippy::needless_range_loop)]
             for a in 0..n_actions {
                 let q = q_table[h][v][a];
                 if q > best {

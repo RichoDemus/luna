@@ -1,16 +1,14 @@
 mod core;
-mod mouse_coordinates_plugin;
 mod persistence;
 mod q;
 mod types;
 
 use crate::core::LanderEnv;
-use crate::mouse_coordinates_plugin::MouseCoordinatesPlugin;
 use crate::q::QLearning;
 use bevy::prelude::*;
-use bevy::window::{WindowResolution, WindowTheme};
+use bevy::window::WindowTheme;
 use once_cell::sync::Lazy;
-use std::f32::consts::FRAC_PI_2;
+use std::env;
 use std::sync::Mutex;
 
 pub(crate) const MIN_HEIGHT: f32 = 0.0;
@@ -26,7 +24,12 @@ pub(crate) const WINDOW_WIDTH: u32 = 1280;
 pub(crate) const WINDOW_HEIGHT: u32 = 720;
 
 fn main() {
-    // core::run();
+    if env::args().collect::<Vec<String>>().contains(&"--train".to_string()) {
+        println!("time to train!");
+        core::run();
+        return;
+    }
+
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -135,7 +138,7 @@ fn just_do_everything(
             continue;
         }
         let mut env = LANDER.lock().unwrap();
-        let mut q_learning = Q_LEARNING.lock().unwrap();
+        let q_learning = Q_LEARNING.lock().unwrap();
 
         let discretized_height = env.state.height.discretize();
         let discretized_velocity = env.state.velocity.discretize();
