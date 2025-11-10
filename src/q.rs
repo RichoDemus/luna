@@ -1,6 +1,7 @@
 use crate::types::{DiscretizedHeight, DiscretizedVelocity};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 
 pub(crate) type QTable = [[[f32; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS];
 
@@ -14,28 +15,59 @@ pub(crate) const NUMBER_OF_ACTIONS: usize = 2;
 pub(crate) const EPISODES: usize = 250_000;
 pub(crate) const MAX_STEPS_PER_EPISODE: usize = 2_000usize;
 
-pub(crate) struct QLearningParameters {}
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct QLearningParameters {
+    pub min_height: f32,
+    pub max_height: f32,
+    pub height_bins: usize,
+    pub min_velocity: f32,
+    pub max_velocity: f32,
+    pub velocity_bins: usize,
+    pub number_of_actions: usize,
+    pub target_episodes: usize,
+    pub learning_rate_alpha: f32,
+    pub discount_factor_gamma: f32,
+    pub starting_epsilon: f32,
+    pub minimum_epsilon: f32,
+    pub epsilon_decay: f32,
+    pub seed: u64,
+}
+
+impl Default for QLearningParameters {
+    fn default() -> Self {
+        Self {
+            min_height: MIN_HEIGHT,
+            max_height: MAX_HEIGHT,
+            height_bins: HEIGHT_BINS,
+            min_velocity: MIN_VELOCITY,
+            max_velocity: MAX_VELOCITY,
+            velocity_bins: VELOCITY_BINS,
+            number_of_actions: NUMBER_OF_ACTIONS,
+            target_episodes: EPISODES,
+            learning_rate_alpha: 0.1,
+            discount_factor_gamma: 0.99,
+            starting_epsilon: 1.0,
+            minimum_epsilon: 0.05,
+            epsilon_decay: 0.9995,
+            seed: 0,
+        }
+    }
+}
 
 pub struct QLearning {
     pub table: QTable,
-    learning_rate_alpha: f32,
-    discount_factor_gamma: f32,
     pub epsilon: f32,
-    epsilon_min: f32,
-    epsilon_decay: f32,
     rng: StdRng,
+    parameters: QLearningParameters,
 }
 
 impl QLearning {
     pub fn new(seed: u64) -> Self {
         Self {
             table: [[[0.0; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS],
-            learning_rate_alpha: 0.1,
-            discount_factor_gamma: 0.99,
             epsilon: 1.0,
-            epsilon_min: 0.05,
-            epsilon_decay: 0.9995,
             rng: StdRng::seed_from_u64(seed),
+            parameters: QLearningParameters::default(),
         }
     }
 
@@ -67,7 +99,7 @@ impl QLearning {
     }
 
     pub fn decay_epsilon(&mut self) {
-        self.epsilon = (self.epsilon * self.epsilon_decay).clamp(self.epsilon_min, 1.0);
+        self.epsilon = (self.epsilon * self.parameters.epsilon_decay).clamp(self.parameters.minimum_epsilon, 1.0);
     }
 
     pub fn q_update(
@@ -84,9 +116,9 @@ impl QLearning {
         let (_, new_q_max_reward) =
             self.get_greedy_action_and_q_value(new_discretized_height, new_discretized_velocity);
 
-        let td_target = immediate_reward + self.discount_factor_gamma * new_q_max_reward;
+        let td_target = immediate_reward + self.parameters.discount_factor_gamma * new_q_max_reward;
         self.table[discretized_height.0][discretized_velocity.0][action] =
-            q_value + self.learning_rate_alpha * (td_target - q_value);
+            q_value + self.parameters.learning_rate_alpha * (td_target - q_value);
     }
 
     pub fn print(&self) {
