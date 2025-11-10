@@ -139,7 +139,7 @@ fn just_do_everything(
             if terminal_reward > 0. {
                 *state = LanderState::Landed;
                 println!("landed");
-                info!("height: {}, velocity: {}", s_next.height.0, s_next.velocity.0);
+                // info!("height: {}, velocity: {}", s_next.height.0, s_next.velocity.0);
                 for mut text in texts.iter_mut() {
                     **text = format!(
                         "State: {:>8?} | Velocity: {:>7.1} | Height: {:>7.1} | Thrusting: {:>5}",
@@ -152,7 +152,7 @@ fn just_do_everything(
             } else {
                 *state = LanderState::Crashed;
                 println!("crashed");
-                info!("height: {}, velocity: {}", s_next.height.0, s_next.velocity.0);
+                // info!("height: {}, velocity: {}", s_next.height.0, s_next.velocity.0);
                 for mut text in texts.iter_mut() {
                     **text = format!(
                         "State: {:>8?} | Velocity: {:>7.1} | Height: {:>7.1} | Thrusting: {:>5}",
@@ -165,8 +165,8 @@ fn just_do_everything(
             }
             continue;
         }
-        transform.translation.y = s_next.height.0 * 5.;
-        info!("height: {}, velocity: {}", s_next.height.0, s_next.velocity.0);
+        transform.translation.y = s_next.height.0 * 4.;
+        // info!("height: {}, velocity: {}", s_next.height.0, s_next.velocity.0);
         for mut text in texts.iter_mut() {
             **text = format!(
                 "State: {:>8?} | Velocity: {:>7.1} | Height: {:>7.1} | Thrusting: {:>5}",

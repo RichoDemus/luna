@@ -129,8 +129,9 @@ pub struct EvaluationResults {
     avg_touch_v: f32,
 }
 
-fn eval(q_learning: &QLearning, seed: u64) -> EvaluationResults {
-    let mut env = LanderEnv::new(seed);
+fn eval(q_learning: &QLearning) -> EvaluationResults {
+    // dont use same seed for eval as for training
+    let mut env = LanderEnv::new(q_learning.parameters.seed ^ 0xDEAD_BEEF);
     let eval_episodes = 200usize;
     let mut successes = 0usize;
     let mut total_eval_fuel = 0.0_f32;
@@ -173,30 +174,34 @@ fn eval(q_learning: &QLearning, seed: u64) -> EvaluationResults {
 }
 
 #[allow(unused)]
-pub fn train_and_evaluate(seed: u64) -> (QLearning, EvaluationResults) {
+pub fn train_and_evaluate() -> (QLearning, EvaluationResults) {
     let mut q_learning = QLearning::new(QLearningParameters::default());
 
     println!("Starting training: {} episodes", q_learning.parameters.target_episodes);
+    let seed = q_learning.parameters.seed;
     train(&mut q_learning, seed);
     println!("Training finished. Evaluating greedy policy...");
-    let results = eval(&q_learning, seed ^ 0xBEEF);
+    let results = eval(&q_learning);
     (q_learning, results)
 }
 
 pub(crate) fn run() {
-    let q_learning = match persistence::load() {
-        None => {
-            let mut q_learning = QLearning::new(QLearningParameters::default());
-            train(&mut q_learning, 12345_u64);
-            q_learning
-        }
-        Some(q_table) => {
-            let mut q_learning = QLearning::new(QLearningParameters::default());
-            q_learning.table = q_table;
-            q_learning
-        }
-    };
-    let results = eval(&q_learning, 12345_u64 ^ 0xBEEF);
+    // let q_learning = match persistence::load() {
+    //     None => {
+    //         let mut q_learning = QLearning::new(QLearningParameters::default());
+    //         train(&mut q_learning, 12345_u64);
+    //         q_learning
+    //     }
+    //     Some(q_table) => {
+    //         let mut q_learning = QLearning::new(QLearningParameters::default());
+    //         q_learning.table = q_table;
+    //         q_learning
+    //     }
+    // };
+    let mut q_learning = QLearning::new(QLearningParameters::default());
+    let seed = q_learning.parameters.seed;
+    train(&mut q_learning, seed);
+    let results = eval(&q_learning);
 
     q_learning.print();
     print_value_heatmap(&q_learning.table, HEIGHT_BINS, VELOCITY_BINS, NUMBER_OF_ACTIONS);
@@ -298,19 +303,18 @@ mod tests {
         if std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true") {
             return;
         }
-        let seed = 12345_u64;
-        let (_q_learning, results) = train_and_evaluate(seed);
+        let (_q_learning, results) = train_and_evaluate();
 
         let epsilon = 1e-6;
         assert_eq!(results.successes, 200);
         let velocities = results.avg_touch_v;
-        let expected_velocities = 81.17454;
+        let expected_velocities = 81.51638;
         assert!(
             (velocities - expected_velocities).abs() < epsilon,
             "{velocities} != {expected_velocities}"
         );
         let fuel = results.total_eval_fuel;
-        let expected_fuel = 1285.8066;
+        let expected_fuel = 1260.8226;
         assert!((fuel - expected_fuel).abs() < epsilon, "{fuel} != {expected_fuel}");
     }
 }

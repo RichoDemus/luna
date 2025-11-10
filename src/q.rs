@@ -48,7 +48,7 @@ impl Default for QLearningParameters {
             max_velocity: 50.0,
             velocity_bins: VELOCITY_BINS,
             number_of_actions: NUMBER_OF_ACTIONS,
-            target_episodes: 300_000,
+            target_episodes: 350_000,
             learning_rate_alpha: 0.1,
             discount_factor_gamma: 0.99,
             starting_epsilon: 1.0,
@@ -60,7 +60,7 @@ impl Default for QLearningParameters {
 }
 
 pub struct QLearning {
-    pub table: QTable,
+    pub table: Box<QTable>,
     pub epsilon: f32,
     rng: StdRng,
     pub parameters: QLearningParameters,
@@ -69,7 +69,7 @@ pub struct QLearning {
 impl QLearning {
     pub fn new(parameters: QLearningParameters) -> Self {
         Self {
-            table: [[[0.0; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS],
+            table: Box::new([[[0.0; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS]),
             epsilon: 1.0,
             rng: StdRng::seed_from_u64(parameters.seed),
             parameters,
