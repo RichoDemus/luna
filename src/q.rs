@@ -49,7 +49,7 @@ impl Default for QLearningParameters {
             starting_epsilon: 1.0,
             minimum_epsilon: 0.05,
             epsilon_decay: 0.9995,
-            seed: 0,
+            seed: 12345_u64 ^ 0xDEAD_BEEF,
         }
     }
 }
@@ -62,12 +62,12 @@ pub struct QLearning {
 }
 
 impl QLearning {
-    pub fn new(seed: u64) -> Self {
+    pub fn new(parameters: QLearningParameters) -> Self {
         Self {
             table: [[[0.0; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS],
             epsilon: 1.0,
-            rng: StdRng::seed_from_u64(seed),
-            parameters: QLearningParameters::default(),
+            rng: StdRng::seed_from_u64(parameters.seed),
+            parameters,
         }
     }
 

@@ -1,5 +1,7 @@
 use crate::persistence;
-use crate::q::{EPISODES, HEIGHT_BINS, MAX_STEPS_PER_EPISODE, NUMBER_OF_ACTIONS, QLearning, VELOCITY_BINS};
+use crate::q::{
+    EPISODES, HEIGHT_BINS, MAX_STEPS_PER_EPISODE, NUMBER_OF_ACTIONS, QLearning, QLearningParameters, VELOCITY_BINS,
+};
 use crate::types::{Height, Velocity};
 use rand::prelude::*;
 use std::collections::HashSet;
@@ -181,7 +183,7 @@ fn eval(q_learning: &QLearning, seed: u64) -> EvaluationResults {
 
 #[allow(unused)]
 pub fn train_and_evaluate(seed: u64) -> (QLearning, EvaluationResults) {
-    let mut q_learning = QLearning::new(seed ^ 0xDEAD_BEEF);
+    let mut q_learning = QLearning::new(QLearningParameters::default());
 
     println!("Starting training: {EPISODES} episodes");
     train(&mut q_learning, seed);
@@ -193,12 +195,12 @@ pub fn train_and_evaluate(seed: u64) -> (QLearning, EvaluationResults) {
 pub(crate) fn run() {
     let q_learning = match persistence::load() {
         None => {
-            let mut q_learning = QLearning::new(12345_u64 ^ 0xDEAD_BEEF);
+            let mut q_learning = QLearning::new((QLearningParameters::default()));
             train(&mut q_learning, 12345_u64);
             q_learning
         }
         Some(q_table) => {
-            let mut q_learning = QLearning::new(12345_u64 ^ 0xDEAD_BEEF);
+            let mut q_learning = QLearning::new((QLearningParameters::default()));
             q_learning.table = q_table;
             q_learning
         }

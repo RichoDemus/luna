@@ -4,7 +4,7 @@ mod q;
 mod types;
 
 use crate::core::LanderEnv;
-use crate::q::QLearning;
+use crate::q::{QLearning, QLearningParameters};
 use bevy::prelude::*;
 use bevy::window::WindowTheme;
 use once_cell::sync::Lazy;
@@ -115,7 +115,7 @@ static LANDER: Lazy<Mutex<LanderEnv>> = Lazy::new(|| {
 });
 
 static Q_LEARNING: Lazy<Mutex<QLearning>> = Lazy::new(|| {
-    let mut q_learning = QLearning::new(12345_u64 ^ 0xDEAD_BEEF);
+    let mut q_learning = QLearning::new((QLearningParameters::default()));
     q_learning.table = persistence::load().unwrap();
     Mutex::new(q_learning)
 });
