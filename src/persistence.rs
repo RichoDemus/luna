@@ -11,9 +11,18 @@ pub(crate) fn save(table: &QTable) {
     std::fs::write(PATH, bytes).unwrap();
 }
 
+// pub(crate) enum LoadSource {
+//     Root, Assets, Target,
+// }
+
 pub(crate) fn load() -> Option<QTable> {
-    let bytes = include_bytes!("../q_table.json").to_vec();
-    // let bytes = std::fs::read("assets/q_table.json").ok()?;
+    // let byte: Vec<u8> = match source {
+    //     LoadSource::Root => {}
+    //     LoadSource::Assets => include_bytes!("../assets/q_table.json").to_vec(),
+    //     LoadSource::Target => {}
+    // };
+    // let bytes = include_bytes!("../q_table.json").to_vec();
+    let bytes = std::fs::read(PATH).ok()?;
     let result: Vec<Vec<Vec<f32>>> = serde_json::from_slice(bytes.as_slice()).ok()?;
 
     let table: QTable = std::array::from_fn(|height| {
