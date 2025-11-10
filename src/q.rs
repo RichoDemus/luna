@@ -48,7 +48,7 @@ impl Default for QLearningParameters {
             max_velocity: 50.0,
             velocity_bins: VELOCITY_BINS,
             number_of_actions: NUMBER_OF_ACTIONS,
-            target_episodes: 250_000,
+            target_episodes: 300_000,
             learning_rate_alpha: 0.1,
             discount_factor_gamma: 0.99,
             starting_epsilon: 1.0,

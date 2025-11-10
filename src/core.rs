@@ -11,29 +11,26 @@ pub(crate) const THRUST_ACCELERATION: f32 = 5.0;
 pub(crate) const SAFE_LANDING_VELOCITY: f32 = 1.0;
 pub(crate) const TIMESTEP_DT: f32 = 1. / 60.;
 
-/// Single-step environment state
 #[derive(Copy, Clone)]
 pub(crate) struct State {
     pub(crate) height: Height,
     pub(crate) velocity: Velocity,
 }
 
-/// Simple 1D lunar lander environment
 pub(crate) struct LanderEnv {
-    g: f32,          // gravity (m/s^2)
-    thrust_acc: f32, // upward acceleration produced when thrusters are ON (m/s^2)
-    dt: f32,         // timestep (s)
+    g: f32,
+    thrust_acc: f32,
+    dt: f32,
     pub(crate) state: State,
     rng: StdRng,
 }
 
 impl LanderEnv {
-    /// Create a new environment with a given RNG seed.
     pub(crate) fn new(seed: u64) -> Self {
         Self {
-            g: GRAVITATIONAL_CONSTANT,       // moon gravity ~1.62 m/s^2
-            thrust_acc: THRUST_ACCELERATION, // thrust acceleration (should exceed gravity to be effective)
-            dt: TIMESTEP_DT,                 // timestep
+            g: GRAVITATIONAL_CONSTANT,
+            thrust_acc: THRUST_ACCELERATION,
+            dt: TIMESTEP_DT,
             state: State {
                 height: MAX_HEIGHT.into(),
                 velocity: 0.0.into(),
@@ -44,7 +41,7 @@ impl LanderEnv {
 
     fn reset(&mut self) -> State {
         self.state = State {
-            height: self.rng.random_range(80.0..120.0).into(),
+            height: self.rng.random_range(MAX_HEIGHT * 0.9..MAX_HEIGHT).into(),
             velocity: 0.0.into(),
         };
         self.state
@@ -307,13 +304,13 @@ mod tests {
         let epsilon = 1e-6;
         assert_eq!(results.successes, 200);
         let velocities = results.avg_touch_v;
-        let expected_velocities = 81.11385;
+        let expected_velocities = 81.17454;
         assert!(
             (velocities - expected_velocities).abs() < epsilon,
             "{velocities} != {expected_velocities}"
         );
         let fuel = results.total_eval_fuel;
-        let expected_fuel = 994.76917;
+        let expected_fuel = 1285.8066;
         assert!((fuel - expected_fuel).abs() < epsilon, "{fuel} != {expected_fuel}");
     }
 }
