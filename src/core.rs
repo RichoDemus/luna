@@ -1,6 +1,6 @@
-use crate::q::QLearning;
+use crate::persistence;
+use crate::q::{EPISODES, HEIGHT_BINS, MAX_STEPS_PER_EPISODE, NUMBER_OF_ACTIONS, QLearning, VELOCITY_BINS};
 use crate::types::{Height, Velocity};
-use crate::{EPISODES, HEIGHT_BINS, MAX_STEPS_PER_EPISODE, NUMBER_OF_ACTIONS, VELOCITY_BINS, persistence};
 use rand::prelude::*;
 use std::collections::HashSet;
 
@@ -311,8 +311,8 @@ mod tests {
         let epsilon = 1e-6;
         assert_eq!(results.successes, 200);
         let velocities = results.avg_touch_v;
-        // assert!((velocities - 80.840805).abs() < epsilon, "{velocities} != 80.840805");
+        assert!((velocities - 80.98163).abs() < epsilon, "{velocities} != 80.98163");
         let fuel = results.total_eval_fuel;
-        // assert!((fuel - 982.4689).abs() < epsilon, "{fuel} != 982.4689");
+        assert!((fuel - 1245.6881).abs() < epsilon, "{fuel} != 1245.6881");
     }
 }

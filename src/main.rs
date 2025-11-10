@@ -3,7 +3,6 @@ mod persistence;
 mod q;
 mod types;
 
-use std::env;
 use crate::core::LanderEnv;
 use crate::q::QLearning;
 use bevy::prelude::*;
@@ -12,15 +11,6 @@ use once_cell::sync::Lazy;
 use std::env;
 use std::sync::Mutex;
 
-pub(crate) const MIN_HEIGHT: f32 = 0.0;
-pub(crate) const MAX_HEIGHT: f32 = 150.0;
-pub(crate) const MIN_VELOCITY: f32 = -20.0;
-pub(crate) const MAX_VELOCITY: f32 = 50.0;
-pub(crate) const HEIGHT_BINS: usize = 120;
-pub(crate) const VELOCITY_BINS: usize = 120;
-pub(crate) const NUMBER_OF_ACTIONS: usize = 2;
-pub(crate) const EPISODES: usize = 250_000;
-pub(crate) const MAX_STEPS_PER_EPISODE: usize = 2_000usize;
 pub(crate) const WINDOW_WIDTH: u32 = 1280;
 pub(crate) const WINDOW_HEIGHT: u32 = 720;
 

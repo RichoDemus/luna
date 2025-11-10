@@ -1,9 +1,20 @@
 use crate::types::{DiscretizedHeight, DiscretizedVelocity};
-use crate::{HEIGHT_BINS, NUMBER_OF_ACTIONS, VELOCITY_BINS};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 pub(crate) type QTable = [[[f32; NUMBER_OF_ACTIONS]; VELOCITY_BINS]; HEIGHT_BINS];
+
+pub(crate) const MIN_HEIGHT: f32 = 0.0;
+pub(crate) const MAX_HEIGHT: f32 = 150.0;
+pub(crate) const MIN_VELOCITY: f32 = -20.0;
+pub(crate) const MAX_VELOCITY: f32 = 50.0;
+pub(crate) const HEIGHT_BINS: usize = 120;
+pub(crate) const VELOCITY_BINS: usize = 120;
+pub(crate) const NUMBER_OF_ACTIONS: usize = 2;
+pub(crate) const EPISODES: usize = 250_000;
+pub(crate) const MAX_STEPS_PER_EPISODE: usize = 2_000usize;
+
+pub(crate) struct QLearningParameters {}
 
 pub struct QLearning {
     pub table: QTable,

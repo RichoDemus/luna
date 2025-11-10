@@ -1,4 +1,4 @@
-use crate::{HEIGHT_BINS, MAX_HEIGHT, MAX_VELOCITY, MIN_HEIGHT, MIN_VELOCITY, VELOCITY_BINS};
+use crate::q::{HEIGHT_BINS, MAX_HEIGHT, MAX_VELOCITY, MIN_HEIGHT, MIN_VELOCITY, VELOCITY_BINS};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Mul, Sub};

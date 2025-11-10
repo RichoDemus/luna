@@ -35,8 +35,7 @@ pub(crate) fn load() -> Option<QTable> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::q::QTable;
-    use crate::{NUMBER_OF_ACTIONS, VELOCITY_BINS};
+    use crate::q::{NUMBER_OF_ACTIONS, QTable, VELOCITY_BINS};
 
     #[test]
     fn test_save_and_load() {
