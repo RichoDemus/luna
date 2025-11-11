@@ -124,23 +124,41 @@ fn train(q_learning: &mut QLearning, seed: u64) {
 pub struct EvaluationResults {
     successes: usize,
     eval_episodes: usize,
-    eval_n: f32,
-    total_eval_fuel: f32,
-    avg_touch_v: f32,
+    total_fuel_usage: f32,
+    total_touchdown_velocity: f32,
+}
+
+impl EvaluationResults {
+    pub(crate) fn print(&self) {
+        println!("=== EVALUATION SUMMARY ===");
+        println!(
+            "Success rate: {}/{} ({:.1}%)",
+            self.successes,
+            self.eval_episodes,
+            100.0 * (self.successes as f32) / self.eval_episodes as f32,
+        );
+        println!(
+            "Avg fuel per episode: {:.4}",
+            self.total_fuel_usage / self.eval_episodes as f32
+        );
+        println!(
+            "Avg touchdown speed (m/s): {:.4}",
+            self.total_touchdown_velocity / self.eval_episodes as f32
+        );
+    }
 }
 
 fn eval(q_learning: &QLearning) -> EvaluationResults {
     // dont use same seed for eval as for training
     let mut env = LanderEnv::new(q_learning.parameters.seed ^ 0xDEAD_BEEF);
-    let eval_episodes = 200usize;
+    let eval_episodes = 1000;
     let mut successes = 0usize;
-    let mut total_eval_fuel = 0.0_f32;
-    let mut avg_touch_v = 0.0_f32;
+    let mut total_fuel_usage = 0.0_f32;
+    let mut total_touchdown_velocity = 0.0_f32;
 
-    for _ in 0..eval_episodes {
+    for _ in 1..=eval_episodes {
         let mut state = env.reset();
         let mut fuel_used = 0.0_f32;
-        let mut touchdown_v: Option<f32> = None;
 
         while fuel_used < OPTIMAL_FUEL_USAGE * 10. {
             let (action, _) = q_learning.get_greedy_action_and_q_value(state.height, state.velocity);
@@ -152,24 +170,20 @@ fn eval(q_learning: &QLearning) -> EvaluationResults {
                 if terminal_reward > 0.0 {
                     successes += 1;
                 }
-                touchdown_v = Some(s_next.velocity.into());
+                total_fuel_usage += fuel_used;
+                total_touchdown_velocity += <Velocity as Into<f32>>::into(s_next.velocity);
                 break;
             }
 
             state = s_next;
         }
-
-        total_eval_fuel += fuel_used;
-        avg_touch_v += touchdown_v.unwrap_or(999.0);
     }
 
-    let eval_n = eval_episodes as f32;
     EvaluationResults {
         successes,
         eval_episodes,
-        eval_n,
-        total_eval_fuel,
-        avg_touch_v,
+        total_fuel_usage,
+        total_touchdown_velocity,
     }
 }
 
@@ -205,16 +219,8 @@ pub(crate) fn run() {
 
     q_learning.print();
     print_value_heatmap(&q_learning.table, HEIGHT_BINS, VELOCITY_BINS, NUMBER_OF_ACTIONS);
-    println!("=== EVALUATION SUMMARY ===");
-    println!(
-        "Success rate: {}/{} ({:.1}%)",
-        results.successes,
-        results.eval_episodes,
-        100.0 * (results.successes as f32) / results.eval_n
-    );
-    println!("Avg fuel per episode: {:.4}", results.total_eval_fuel / results.eval_n);
-    println!("Avg touchdown speed (m/s): {:.4}", results.avg_touch_v / results.eval_n);
-    persistence::save(&q_learning.table)
+    results.print();
+    persistence::save(&q_learning.table);
 }
 
 fn print_value_heatmap(
@@ -306,15 +312,17 @@ mod tests {
         let (_q_learning, results) = train_and_evaluate();
 
         let epsilon = 1e-6;
-        assert_eq!(results.successes, 200);
-        let velocities = results.avg_touch_v;
-        let expected_velocities = 81.51638;
+        assert_eq!(results.successes, 1000);
+        let velocities = results.total_touchdown_velocity;
+        let expected_velocities = 406.67078;
         assert!(
             (velocities - expected_velocities).abs() < epsilon,
             "{velocities} != {expected_velocities}"
         );
-        let fuel = results.total_eval_fuel;
-        let expected_fuel = 1260.8226;
+        let fuel = results.total_fuel_usage;
+        let expected_fuel = 6309.466;
         assert!((fuel - expected_fuel).abs() < epsilon, "{fuel} != {expected_fuel}");
+
+        results.print();
     }
 }
