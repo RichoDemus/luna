@@ -45,7 +45,7 @@ jobs:
         run: cargo test --all-features
 
       - name: Install wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli
+        run: cargo install --locked --force wasm-bindgen-cli
 
       - name: Add wasm32 target
         run: rustup target add wasm32-unknown-unknown
